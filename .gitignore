@@ -10,3 +10,7 @@
 .cxx
 local.properties
 /app/build
+# 签名密钥与密码配置（绝不入库）
+*.keystore
+*.jks
+keystore.properties
