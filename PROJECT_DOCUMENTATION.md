@@ -1,4 +1,4 @@
-# 营养记录器 Android 项目维护文档
+# 健身wedo Android 项目维护文档
 
 > 本文档记录项目当前实际情况、技术架构、已实现功能与变更历史，供后续接手、升级或调整时参考。每次新增功能或做重大调整时，请在「变更历史」表格**顶部**插入新记录（最新变更排在最上方）。
 
@@ -6,7 +6,7 @@
 
 ## 1. 项目概述
 
-本项目是微信小程序「营养记录器」的 Android 原生版本。用户可手动录入每日各餐次的热量、三大宏量营养素及自定义微量营养素，应用自动汇总并与目标值对比，生成首页概览、每周统计报告。
+本项目是微信小程序「健身wedo」（wedo Fitness）的 Android 原生版本。用户可手动录入每日各餐次的热量、三大宏量营养素及自定义微量营养素，应用自动汇总并与目标值对比，生成首页概览、每周统计报告。
 
 ### 1.1 产品定位
 
@@ -345,6 +345,7 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 2026-09-04 | 1.4.3 | 品牌名统一与发布准备：① 产品名全面统一为「健身wedo / wedo Fitness」（与微信小程序及 `strings.xml` 中 `app_name` 一致），文档旧名「营养记录器」全部替换；② 新增发布签名配置——`keystore.properties` 读取本地密钥（已被 .gitignore 排除，文件缺失时自动退化为 unsigned 构建），release 构建产出正式签名 APK（v2/v3），并附 SHA-256 校验值；③ README 改为中文优先、双语结构，标题与英文段落均同步新品牌名。 | `README.md`, `PROJECT_DOCUMENTATION.md`, `app/build.gradle.kts`, `.gitignore`, `keystore.properties`(*) |
 | 2026-09-04 | 1.4.3 | 扫尾收尾（终版）：① 移除未使用的 Vico 图表依赖（源码零引用，proguard 无残留规则）；② Gradle Wrapper 完整入库（`gradlew`/`gradlew.bat`/`gradle-wrapper.jar`），新机器开箱即用；③ 验证：debug 三套编译（main/unit/androidTest）全绿、release（R8 混淆）构建成功产出 unsigned APK（约 2.3MB）与 mapping.txt、`lintVitalRelease` 无致命问题；④ 版本号 `versionCode` 4→5、`versionName` 1.4.2→1.4.3，`APP_VERSION` 联动；⑤ 删除文档中全部待办清单——本项目进入终版维护状态，剩余方向（OCR、深色模式、小程序二期对齐等）见 `../MULTIPLATFORM_PROGRESS.md` 历史评估。 | `app/build.gradle.kts`, `domain/constants/NutrientConstants.kt`, `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, `PROJECT_DOCUMENTATION.md`, `../MULTIPLATFORM_PROGRESS.md` |
 | 2026-09-04 | 1.4.2 | 工具链升级与项目迁移（补记+验证）：① 项目从 `D:\AAAAA\trae work\wedo` 迁移至 `D:\AAAAA\ai\wedo`（与小程序工程、跨平台进度文档同级）；② 构建工具链于 2026-09-01 晚升级——AGP 8.x→9.2.1、Kotlin 2.1.0→2.2.10、KSP→2.3.2、Gradle wrapper→9.4.1（源码零改动，升级当日已成功产出 debug APK），2026-09-04 于新路径 CLI 复验：编译通过（需设置可执行临时目录，见 §7.2）、106 个单元测试在 ASCII 副本下全部通过；③ 应用版本号对齐文档：`versionCode` 3→4、`versionName` 1.2.0→1.4.2，`NutrientConstants.APP_VERSION` 联动更新（关于页与备份 meta 同步生效）；④ 文档交接化整理：新增 §1.3 关键依赖版本表，§7 路径与命令全面更新，变更历史改为最新在最上，注意事项补充 Vico 未使用、gradlew 未入库、CLI 临时目录限制；⑤ 跨平台进度文档 `MULTIPLATFORM_PROGRESS.md` 同步至 1.4.2（平台表/进度/差异矩阵/变更历史/待办优先级分析）。 | `build.gradle.kts`（根）, `gradle/wrapper/gradle-wrapper.properties`, `app/build.gradle.kts`, `domain/constants/NutrientConstants.kt`, `PROJECT_DOCUMENTATION.md`, `../MULTIPLATFORM_PROGRESS.md` |
 | 2026-09-01 | 1.4.1 | 修复编译验证阶段发现的 4 个历史遗留测试失败：① `BackupManager.previewData` 对 `targets: null` / `records: null` 调用 `.jsonObject` 抛 `IllegalArgumentException` → 改为 `as? JsonObject` 安全转换；② `BackupManagerTest` 两处 `schemaVersion` 断言硬编码为 1（实际 SCHEMA_VERSION 已升至 3）→ 改用 `NutrientConstants.SCHEMA_VERSION`；③ `CalculatorTest.calcGap` 恰好落在 `.5` 取整边界与 JS `Math.round` 向正无穷行为冲突 → 调整测试输入至 -499.46 远离边界。修复后 106 个单元测试全部通过（0 failures）。 | `domain/usecase/BackupManager.kt`, `test/.../BackupManagerTest.kt`, `test/.../CalculatorTest.kt` |

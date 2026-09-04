@@ -1,4 +1,4 @@
-# 营养记录器（Android）· Nutrition Tracker
+# 健身wedo（Android 版）· wedo Fitness
 
 [![Platform](https://img.shields.io/badge/platform-Android-3DDC84.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF.svg)](https://kotlinlang.org)
@@ -9,7 +9,7 @@
 
 一款**纯离线、隐私优先**的 Android 营养记录应用。手动录入每日各餐次的热量、宏量营养素及自定义微量营养素，应用自动汇总并与目标值对比，生成首页概览与每周统计报告——**不联网、不登录、不上传、不采集任何数据**。
 
-> 本项目是微信小程序「营养记录器」的 Android 原生版本。当前版本 **1.4.3**（终版维护状态）。
+> 本项目是微信小程序「健身wedo」的 Android 原生版本，两端核心数据模型与备份 JSON Schema 一致，可跨端迁移。当前版本 **1.4.3**（终版维护状态）。
 
 ## 功能特性
 
@@ -63,9 +63,9 @@ cd wedo-Android
 
 ## English
 
-A fully **offline**, privacy-first nutrition tracking app for Android. Record daily meals (calories, macros, and custom micronutrients), compare against your goals, and review weekly statistics — no account, no network, no tracking.
+**健身wedo**（wedo Fitness）is a fully **offline**, privacy-first nutrition tracking app for Android. Record daily meals (calories, macros, and custom micronutrients), compare against your goals, and review weekly statistics — no account, no network, no tracking.
 
-> Native Android port of the WeChat Mini Program "营养记录器". Current version: **1.4.3** (final maintenance release).
+> Native Android port of the WeChat Mini Program 「健身wedo」. Current version: **1.4.3** (final maintenance release).
 
 ### Features
 
