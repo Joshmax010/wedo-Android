@@ -339,7 +339,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 ### 7.5 本轮底层优化的统一回归
 
-完整拉取、编译、设备测试命令和手工检查项见 [`LOCAL_REGRESSION_CHECKLIST.md`](./LOCAL_REGRESSION_CHECKLIST.md)。本轮新增 15 个 JVM 用例和 14 个 Room 设备用例。2026-10-01 已通过 GitHub Actions 验证主代码编译、全部 121 个 JVM 用例（零失败/错误/跳过）及 Lint（零错误，40 条原有警告）；38 个 Room 设备用例仍待本地执行。完整日志、测试明细及验证提交见 [`CLOUD_VALIDATION.md`](./CLOUD_VALIDATION.md)。应用仍为 1.4.3，数据库仍为 v4，备份 Schema 仍为 v3。
+完整拉取、编译、设备测试命令和手工检查项见 [`LOCAL_REGRESSION_CHECKLIST.md`](./LOCAL_REGRESSION_CHECKLIST.md)。本轮底层优化新增 15 个 JVM 用例和 14 个 Room 设备用例；后续代码清理未新增测试文件。2026-10-01 已通过 GitHub Actions 验证清理后主代码编译、全部 121 个 JVM 用例（零失败/错误/跳过）及 Lint（零错误，39 条原有警告）；38 个 Room 设备用例仍待本地执行。完整日志、测试明细及验证提交见 [`CLOUD_VALIDATION.md`](./CLOUD_VALIDATION.md)。应用仍为 1.4.3，数据库仍为 v4，备份 Schema 仍为 v3。
 
 ---
 
@@ -359,6 +359,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 代码清理完整验证通过：主 Kotlin 源码净减少 2498 行，209 条预设实际对象逐项比较一致；编译、121 个 JVM 用例和 Lint 通过，零错误、39 条既有警告、无新增警告。页面布局保持不变，未打包 APK 或执行设备测试。 | `CLOUD_VALIDATION.md`、统一回归清单与维护文档 |
 | 待发布 | 基于 1.4.3 | 代码清理：六个页面使用 AndroidX 内置 `viewModelFactory`/`initializer` 创建 ViewModel，删除重复的自定义 Factory、类型判断与未检查强制转换。保留构造参数、ViewModel 作用域及所有页面布局，不引入新封装或依赖。 | 六个 `ViewModel.kt`、对应 `Screen.kt` 与维护文档 |
 | 待发布 | 基于 1.4.3 | 代码清理：209 条食物预设改用紧凑声明，共同字段集中构造。固定 ID、顺序、营养值、标签与默认字段保持一致；清理前后实际 Kotlin 对象逐项比较通过（仅忽略初始化时生成的时间戳）。预设源码由 2526 行减至 247 行。 | `domain/constants/PresetFoodTemplates.kt` |
 | 待发布 | 基于 1.4.3 | 代码清理：删除未调用的 DataStore 封装、Application 入口与依赖，删除未使用的间距/圆角/快捷字号常量及空页面占位文件。引导状态仍由 Room 元信息保存；页面布局、数据库与备份格式保持不变。同步 README 测试数量及架构说明。 | `app/build.gradle.kts`、`NutritionApp.kt`、`data/local/prefs/`、`ui/theme/`、`ui/screens/`、README 与维护文档 |

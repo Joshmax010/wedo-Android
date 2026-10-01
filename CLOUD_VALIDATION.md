@@ -1,10 +1,10 @@
 # 云端验证记录
 
-2026-10-01，GitHub Actions 已完成本轮代码验证。
+2026-10-01，GitHub Actions 已完成代码清理后的完整验证。
 
-- 验证代码提交：`66236f38133e8662e78b6613077de78b27a71f66`
-- [成功的工作流运行](https://github.com/Joshmax010/wedo-Android/actions/runs/36824295964)
-- [完整报告与构建日志](https://github.com/Joshmax010/wedo-Android/tree/codex/cloud-test-results/runs/36824295964)
+- 验证代码提交：`aa75c7090aa236758370e38c8c98cf4e9e9abb49`
+- [成功的工作流运行](https://github.com/Joshmax010/wedo-Android/actions/runs/36828778125)
+- [完整报告与构建日志](https://github.com/Joshmax010/wedo-Android/tree/codex/cloud-test-results/runs/36828778125)
 - 应用版本 1.4.3（versionCode 5）、Room v4、备份 Schema v3。
 
 ## 检查结果
@@ -19,10 +19,18 @@ bash gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug --max
 |---|---|
 | 主代码编译，包括 Room KSP 与 Compose | 通过 |
 | JVM 单元测试 | 121 个通过，0 失败、0 错误、0 跳过 |
-| Android Lint | 通过，0 错误、40 条原有警告 |
-| Gradle 总结果 | BUILD SUCCESSFUL，3 分 40 秒 |
+| Android Lint | 通过，0 错误、39 条原有警告 |
+| Gradle 总结果 | BUILD SUCCESSFUL，2 分 54 秒 |
 
 本轮按要求仅验证代码编译、JVM 测试和 Lint；未执行 APK 打包或真机/模拟器测试。38 个 Room 设备用例仍待你本地执行。
+
+### 代码清理范围与专项检查
+
+- `592a1bc`：删除未调用的 DataStore 封装与依赖、未使用的样式常量和空页面占位文件。实际引导状态保存在 Room 元信息中。
+- `5d2d62d`：209 条食物预设的共同字段集中构造，源码从 2526 行减至 247 行。独立使用 Kotlin 2.2.10 编译清理前后实现，逐项比较实际模型；固定 ID、顺序、营养值、标签及默认字段全部一致，仅忽略初始化时生成的时间戳。
+- `aa75c70`：以 AndroidX 内置 `viewModelFactory`/`initializer` 替换六套自定义工厂，无新增封装或依赖。源码比对确认六个页面的布局及事件处理保持一致。
+- 主 Kotlin 源码从 73 个文件、13901 行减至 70 个文件、11403 行，净减少 2498 行，其中 2279 行来自预设数据声明，219 行来自其余清理。
+- 数据库、领域模型、仓库读写、备份逻辑及全部原有测试源码未改动。现有 121 个 JVM 用例全部通过；本批未新增测试文件。
 
 ### JVM 用例明细
 
@@ -48,7 +56,7 @@ bash gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug --max
 
 提交 `31ce4b0` 将公共颜色配置抽到基础主题，把上述属性放到 `values-v27/themes.xml`。API 26 使用基础主题，API 27 及以上才加载亮色导航栏的深色图标配置。没有提高最低 Android 版本，也没有屏蔽 Lint 检查。修复后的完整检查通过。
 
-剩余 40 条警告涉及依赖/工具链版本建议、默认 Locale、启动图标、备份配置等；没有在本轮批量升级依赖或改变相关功能。
+上轮底层优化验证提交为 `66236f38133e8662e78b6613077de78b27a71f66`，见 [原工作流运行](https://github.com/Joshmax010/wedo-Android/actions/runs/36824295964)。代码清理删除了未使用 DataStore 的依赖版本警告，警告从 40 条降至 39 条，没有新增警告。剩余警告涉及依赖/工具链版本建议、默认 Locale、启动图标、备份配置等；没有批量升级依赖或改变相关功能。
 
 ## 后续云端检查
 
