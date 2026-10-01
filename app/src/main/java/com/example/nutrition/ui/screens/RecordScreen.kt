@@ -194,7 +194,7 @@ fun RecordScreen(
             )
 
             // ========== 记录列表 ==========
-            if (uiState.recordList.isEmpty()) {
+            if (uiState.recordList.isEmpty() && uiState.dataError == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -202,7 +202,7 @@ fun RecordScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "暂无记录，开始录入第一餐吧",
+                        text = if (uiState.isLoadingRecords) "正在读取记录…" else "暂无记录，开始录入第一餐吧",
                         fontSize = 14.sp,
                         color = TextPlaceholder
                     )

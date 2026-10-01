@@ -143,7 +143,10 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             uiState.dataError?.let { message ->
-                item { DataLoadError(message) { viewModel.loadData(); viewModel.checkFirstUse() } }
+                item { DataLoadError(message, viewModel::loadData) }
+            }
+            uiState.metadataError?.let { message ->
+                item { DataLoadError(message, viewModel::checkFirstUse) }
             }
             // 存储容量告警横幅
             uiState.storageWarn?.let { warn ->

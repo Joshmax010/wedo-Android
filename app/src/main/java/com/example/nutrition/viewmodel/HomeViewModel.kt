@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 /**
  * 首页 ViewModel —— 对应小程序 pages/index/index.js
@@ -82,7 +81,8 @@ class HomeViewModel(
         // 二期：代谢计算相关展示
         val tdee: Double? = null,
         val isAutoCalculated: Boolean = false,
-        val dataError: String? = null
+        val dataError: String? = null,
+        val metadataError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -174,11 +174,9 @@ class HomeViewModel(
      * 检测首次使用并显示引导
      */
     fun checkFirstUse() {
-        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(dataError = message) } }) {
+        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(metadataError = message) } }) {
             val meta = repository.getMeta().first()
-            if (meta == null || !meta.hasSeenGuide) {
-                _uiState.update { it.copy(showGuide = true) }
-            }
+            _uiState.update { it.copy(showGuide = meta == null || !meta.hasSeenGuide, metadataError = null) }
         }
     }
 
@@ -187,11 +185,11 @@ class HomeViewModel(
      */
     fun onGuideFinish() {
         _uiState.update { it.copy(showGuide = false) }
-        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(dataError = message) } }) {
+        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(metadataError = message) } }) {
             val meta = repository.getMeta().first() ?: NutrientConstants.getDefaultMeta()
             val result = repository.setMeta(meta.copy(hasSeenGuide = true))
-            if (result is com.example.nutrition.domain.model.Resource.Error) {
-                _uiState.update { it.copy(dataError = result.message) }
+            _uiState.update {
+                it.copy(metadataError = (result as? com.example.nutrition.domain.model.Resource.Error)?.message)
             }
         }
     }

@@ -26,7 +26,7 @@ class BodyStatsViewModelTest {
         val repository = object : LocalStorageRepository by BackupManagerTest.FakeRepository() {
             override fun getBodyRecord(dateStr: String) = flow<BodyRecord?> {
                 loaded.await()
-                emit(BodyRecord(dateStr, weightKg = 70.0))
+                emit(BodyRecord(dateStr, weightKg = 70.0, bodyFatPercent = 20.0, note = "原有备注"))
             }
         }
         val viewModel = BodyStatsViewModel(repository)
@@ -37,6 +37,8 @@ class BodyStatsViewModelTest {
         loaded.complete(Unit)
         runCurrent()
         assertEquals("72", viewModel.uiState.value.weight)
+        assertEquals("20", viewModel.uiState.value.bodyFat)
+        assertEquals("原有备注", viewModel.uiState.value.note)
         assertNull(viewModel.uiState.value.dateError)
     }
 

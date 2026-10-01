@@ -323,7 +323,7 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
    export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Dorg.sqlite.tmpdir=C:/Users/sunyu/AppData/Local/Temp"
    ./gradlew :app:testDebugUnitTest
    ```
-   验证结果（Gradle 8.13 与 9.4.1 均已验证）：106 tests, 0 failures。
+   v1.4.3 历史验证结果（Gradle 8.13 与 9.4.1 均已验证）：106 tests, 0 failures。本轮新增测试未在云端执行，见 §7.5。
 
 ### 7.4 Instrumentation 测试（androidTest）
 
@@ -339,6 +339,10 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 ```
 
 上述新增用例待本地 Android 环境执行；云端仅进行源码与差异检查，不搭建 Android 构建或设备环境。原有单元测试也应在本地按 §7.3 回归。
+
+### 7.5 本轮底层优化的统一回归
+
+完整拉取、编译、设备测试命令和手工检查项见 [`LOCAL_REGRESSION_CHECKLIST.md`](./LOCAL_REGRESSION_CHECKLIST.md)。源码共新增 15 个 JVM 用例和 14 个 Room 设备用例；121/38 是当前源码中的用例数量，并非本轮执行或通过结果。应用仍为 1.4.3，数据库仍为 v4，备份 Schema 仍为 v3；本轮修改在功能分支上等待本地验证。
 
 ---
 
@@ -358,9 +362,10 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 整体审查：延迟读取按字段合并，保留新输入并补齐未编辑的原有目标/身体字段；首页元信息错误独立提示，日期/餐次切换及时移除上一视图记录，读取失败后可恢复。新增 4 个读取状态和取消单元用例，补充统一回归清单及验证状态说明（全部新增用例待本地执行）。 | 相关 ViewModel、Screen、单元测试、`LOCAL_REGRESSION_CHECKLIST.md`、维护文档 |
 | 待发布 | 基于 1.4.3 | 页面状态与提示按生命周期收集；恢复录入页、设置页时保留未保存表单，异步读取/保存不覆盖较新的输入，身体记录取消旧日期读取，周报持续观察记录和目标变化。新增 8 个表单与异步状态单元用例（待本地执行）。 | `ui/screens/`、相关 ViewModel 与单元测试 |
 | 待发布 | 基于 1.4.3 | 预设模板按仓库生命周期初始化一次，互斥与事务保护并发初始化、失败可重试；录入页补全复用已有模板状态，不再重复订阅仓库。新增 3 个初始化设备用例与 1 个订阅单元用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`RecordViewModel.kt`、相关测试 |
-| 待发布 | 基于 1.4.3 | 本地读取或 JSON 解码失败不再伪装为空数据；页面保留最后成功数据并提供重试，备份读取失败不生成部分备份，仓库写操作和页面任务正确传播取消。新增 2 个读取保护设备用例和 2 个备份单元用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`BackupManager.kt`、`viewmodel/`、`ui/screens/`、`DataLoadError.kt`、相关测试 |
+| 待发布 | 基于 1.4.3 | 本地读取或 JSON 解码失败不再伪装为空数据；同一数据视图保留最后成功数据并提供重试，备份读取失败不生成部分备份，仓库写操作和页面任务正确传播取消。新增 2 个读取保护设备用例和 2 个备份单元用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`BackupManager.kt`、`viewmodel/`、`ui/screens/`、`DataLoadError.kt`、相关测试 |
 | 待发布 | 基于 1.4.3 | 饮食记录新增、编辑和删除采用事务内读改写，避免同一天并发操作覆盖彼此；保留记录 ID 与创建时间，新增 3 个并发 Room 回归用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`RoomLocalStorageRepositoryTest.kt` |
 | 待发布 | 基于 1.4.3 | 预防性底层优化：备份导入的五表写入与现有回读校验纳入同一 Room 事务，写入或校验失败时全部回滚，取消继续传播；保留原有导入规则与错误提示。新增 6 个 Room 集成回归用例（待本地执行）。目前无用户导入故障反馈，未调整应用版本、数据库结构或备份格式。 | `data/repository/RoomLocalStorageRepository.kt`、`domain/repository/LocalStorageRepository.kt`、`androidTest/.../RoomLocalStorageRepositoryTest.kt` |
 | 2026-09-04 | 1.4.3 | README 正式化与版权署名修正：① README 重写为开源项目标准结构——徽章行（Release/平台/Kotlin/Compose/无网络/MIT）、下载安装表、校验信息折叠块、功能按「记录/分析/数据」分组、技术栈表补测试行、新增项目结构树（71 个 Kotlin 源文件）、构建与签名配置说明（折叠）、已知限制指引 §7.3、维护状态章节，中英双语镜像；② `LICENSE` 版权行由系统用户名 `sunyu` 修正为 GitHub 身份 `Joshmax010`；③ Release v1.4.3 已发布至 GitHub（资产 `wedo-fitness-v1.4.3.apk`，2,338,132 字节），tag 指向 `6a69987`，下载回环校验哈希与签名均一致。 | `README.md`, `LICENSE` |

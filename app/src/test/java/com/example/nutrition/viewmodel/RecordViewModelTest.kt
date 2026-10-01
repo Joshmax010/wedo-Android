@@ -1,6 +1,7 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModelStore
+import com.example.nutrition.domain.model.DayRecords
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.MealKey
 import com.example.nutrition.domain.model.MealRecord
@@ -91,4 +92,50 @@ class RecordViewModelTest {
         assertEquals("400", viewModel.uiState.value.calories)
         assertNull(viewModel.uiState.value.pendingTemplate)
     }
+    @Test
+    fun changingDate_clearsPreviousRecords_beforeDelayedReadCompletes() = runTest {
+        val loaded = CompletableDeferred<Unit>()
+        val repository = object : LocalStorageRepository by BackupManagerTest.FakeRepository() {
+            override fun getDayRecords(dateStr: String) = flow {
+                if (dateStr == "2026-09-28") loaded.await()
+                emit(DayRecords(dateStr, breakfast = if (dateStr == "2026-09-28") emptyList() else listOf(MealRecord(calories = 300.0))))
+            }
+        }
+        val viewModel = RecordViewModel(repository)
+        store.put("record", viewModel)
+        viewModel.initWithMeal(MealKey.BREAKFAST)
+        viewModel.pickDate("2026-09-27")
+        runCurrent()
+        assertEquals(1, viewModel.uiState.value.recordList.size)
+        viewModel.pickDate("2026-09-28")
+        assertTrue(viewModel.uiState.value.recordList.isEmpty())
+        assertTrue(viewModel.uiState.value.isLoadingRecords)
+        runCurrent()
+        loaded.complete(Unit)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isLoadingRecords)
+        assertTrue(viewModel.uiState.value.recordList.isEmpty())
+    }
+
+    @Test
+    fun readFailure_isVisible_andChangingDateCanRecover() = runTest {
+        val repository = object : LocalStorageRepository by BackupManagerTest.FakeRepository() {
+            override fun getDayRecords(dateStr: String) = flow {
+                if (dateStr == "2026-09-28") error("test read failure")
+                emit(DayRecords(dateStr))
+            }
+        }
+        val viewModel = RecordViewModel(repository)
+        store.put("record", viewModel)
+        runCurrent()
+        viewModel.pickDate("2026-09-28")
+        runCurrent()
+        assertNotNull(viewModel.uiState.value.dataError)
+        assertFalse(viewModel.uiState.value.isLoadingRecords)
+        viewModel.pickDate("2026-09-29")
+        runCurrent()
+        assertNull(viewModel.uiState.value.dataError)
+        assertFalse(viewModel.uiState.value.isLoadingRecords)
+    }
+
 }

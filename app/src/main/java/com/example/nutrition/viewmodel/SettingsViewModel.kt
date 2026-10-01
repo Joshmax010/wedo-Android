@@ -112,6 +112,12 @@ class SettingsViewModel(
     private var targetsLoaded = false
     private var targetsJob: Job? = null
     private var formRevision = 0L
+    private val fieldRevisions = mutableMapOf<String, Long>()
+
+    private fun markFieldEdited(field: String) {
+        formRevision++
+        fieldRevisions[field] = formRevision
+    }
 
     // ==================== 初始化 ====================
 
@@ -124,30 +130,34 @@ class SettingsViewModel(
 
     fun loadTargets() {
         targetsJob?.cancel()
-        val revision = formRevision
+        val revision = if (!targetsLoaded && _uiState.value.targetsError != null) -1L else formRevision
         targetsJob = viewModelScope.launchWithErrorFeedback("读取目标配置失败，请重试", { message ->
             _uiState.update { it.copy(targetsError = message) }
         }) {
             val targets = repository.getTargets().first() ?: NutrientConstants.getDefaultTargets()
             targetsLoaded = true
             _uiState.update { it.copy(targetsError = null) }
-            if (revision != formRevision) return@launchWithErrorFeedback
             val profile = targets.bodyProfile
+            fun edited(field: String) = (fieldRevisions[field] ?: Long.MIN_VALUE) > revision
             _uiState.update { state ->
                 state.copy(
-                    calories = UnitConverter.formatForInput(targets.calories),
-                    protein = UnitConverter.formatForInput(targets.protein),
-                    fat = UnitConverter.formatForInput(targets.fat),
-                    carbs = UnitConverter.formatForInput(targets.carbs),
-                    micronutrients = targets.micronutrients.map { mn ->
+                    calories = if (edited("calories")) state.calories else UnitConverter.formatForInput(targets.calories),
+                    protein = if (edited("protein")) state.protein else UnitConverter.formatForInput(targets.protein),
+                    fat = if (edited("fat")) state.fat else UnitConverter.formatForInput(targets.fat),
+                    carbs = if (edited("carbs")) state.carbs else UnitConverter.formatForInput(targets.carbs),
+                    micronutrients = if (edited("micronutrients")) state.micronutrients else targets.micronutrients.map { mn ->
                         MicroTargetRow(mn.key, mn.name, mn.unit, UnitConverter.formatForInput(mn.target))
                     },
-                    gender = profile?.gender, age = profile?.age?.toString() ?: "",
-                    height = profile?.heightCm?.toString() ?: "",
-                    weight = profile?.weightKg?.toString() ?: "", activityLevel = profile?.activityLevel
+                    gender = if (edited("gender")) state.gender else profile?.gender,
+                    age = if (edited("age")) state.age else profile?.age?.toString() ?: "",
+                    height = if (edited("height")) state.height else profile?.heightCm?.toString() ?: "",
+                    weight = if (edited("weight")) state.weight else profile?.weightKg?.toString() ?: "",
+                    activityLevel = if (edited("activityLevel")) state.activityLevel else profile?.activityLevel
                 )
             }
-            isAutoCalculatedFlag = targets.isAutoCalculated
+            if (listOf("calories", "protein", "fat", "carbs").none { edited(it) }) {
+                isAutoCalculatedFlag = targets.isAutoCalculated
+            }
         }
     }
 
@@ -172,40 +182,40 @@ class SettingsViewModel(
     // ==================== 表单输入 ====================
 
     fun onCaloriesInput(value: String) {
-        formRevision++
+        markFieldEdited("calories")
         _uiState.update { it.copy(calories = value) }
     }
     fun onProteinInput(value: String) {
-        formRevision++
+        markFieldEdited("protein")
         _uiState.update { it.copy(protein = value) }
     }
     fun onFatInput(value: String) {
-        formRevision++
+        markFieldEdited("fat")
         _uiState.update { it.copy(fat = value) }
     }
     fun onCarbsInput(value: String) {
-        formRevision++
+        markFieldEdited("carbs")
         _uiState.update { it.copy(carbs = value) }
     }
 
     fun onGenderInput(value: Gender) {
-        formRevision++
+        markFieldEdited("gender")
         _uiState.update { it.copy(gender = value) }
     }
     fun onAgeInput(value: String) {
-        formRevision++
+        markFieldEdited("age")
         _uiState.update { it.copy(age = value) }
     }
     fun onHeightInput(value: String) {
-        formRevision++
+        markFieldEdited("height")
         _uiState.update { it.copy(height = value) }
     }
     fun onWeightInput(value: String) {
-        formRevision++
+        markFieldEdited("weight")
         _uiState.update { it.copy(weight = value) }
     }
     fun onActivityLevelInput(value: ActivityLevel) {
-        formRevision++
+        markFieldEdited("activityLevel")
         _uiState.update { it.copy(activityLevel = value) }
     }
 
@@ -241,8 +251,8 @@ class SettingsViewModel(
      * 将计算出的推荐目标填充到表单
      */
     fun applyCalculatedTargets() {
-        formRevision++
         val result = _uiState.value.calcResult ?: return
+        listOf("calories", "protein", "fat", "carbs").forEach(::markFieldEdited)
         val targets = result.targets
         isAutoCalculatedFlag = true
 
@@ -297,7 +307,7 @@ class SettingsViewModel(
     }
 
     fun addMicronutrient(item: NutrientConstantItem) {
-        formRevision++
+        markFieldEdited("micronutrients")
         _uiState.update { state ->
             if (state.micronutrients.any { it.key == item.key }) return@update state
             state.copy(
@@ -313,7 +323,7 @@ class SettingsViewModel(
     }
 
     fun onMicroTargetInput(index: Int, value: String) {
-        formRevision++
+        markFieldEdited("micronutrients")
         _uiState.update { state ->
             if (index !in state.micronutrients.indices) return@update state
             val list = state.micronutrients.toMutableList()
@@ -323,7 +333,7 @@ class SettingsViewModel(
     }
 
     fun deleteMicronutrient(index: Int) {
-        formRevision++
+        markFieldEdited("micronutrients")
         _uiState.update { state ->
             if (index !in state.micronutrients.indices) return@update state
             state.copy(micronutrients = state.micronutrients.filterIndexed { i, _ -> i != index })

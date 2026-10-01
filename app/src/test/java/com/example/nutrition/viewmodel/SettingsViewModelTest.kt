@@ -60,6 +60,8 @@ class SettingsViewModelTest {
         loaded.complete(Unit)
         runCurrent()
         assertEquals("3000", viewModel.uiState.value.calories)
+        assertEquals(NutrientConstants.getDefaultTargets().protein.toInt().toString(), viewModel.uiState.value.protein)
+        assertEquals(NutrientConstants.getDefaultTargets().micronutrients.size, viewModel.uiState.value.micronutrients.size)
         assertNull(viewModel.uiState.value.targetsError)
     }
 
@@ -93,6 +95,6 @@ class SettingsViewModelTest {
         viewModel.loadTargets()
         runCurrent()
         assertNull(viewModel.uiState.value.targetsError)
-        assertEquals("${NutrientConstants.getDefaultTargets().calories.toInt()}", viewModel.uiState.value.calories)
+        assertEquals("2000", viewModel.uiState.value.calories) // Retry also retains the draft entered after failure.
     }
 }

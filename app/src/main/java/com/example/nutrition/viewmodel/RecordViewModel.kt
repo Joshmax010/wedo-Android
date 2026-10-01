@@ -76,6 +76,7 @@ class RecordViewModel(
         val showNutrientPicker: Boolean = false,
         // 记录列表
         val recordList: List<MealRecord> = emptyList(),
+        val isLoadingRecords: Boolean = true,
         // 编辑状态
         val editingId: String? = null,
         // 保存为模板弹窗
@@ -146,13 +147,18 @@ class RecordViewModel(
         }
         if (recordsJob?.isActive != true) {
             recordsJob = viewModelScope.launchWithErrorFeedback("读取饮食记录失败，请重试", { message ->
-                _uiState.update { it.copy(dataError = message) }
+                _uiState.update { it.copy(dataError = message, isLoadingRecords = false) }
             }) {
                 _uiState.map { it.currentDate to it.currentMeal }.distinctUntilChanged()
                     .flatMapLatest { (date, meal) ->
-                        repository.getDayRecords(date).map { it.getMeal(meal) }
-                    }.collect { records ->
-                        _uiState.update { it.copy(recordList = records, dataError = null) }
+                        _uiState.update { it.copy(isLoadingRecords = true, dataError = null) }
+                        repository.getDayRecords(date).map { Triple(date, meal, it.getMeal(meal)) }
+                    }.collect { (date, meal, records) ->
+                        _uiState.update { state ->
+                            if (state.currentDate == date && state.currentMeal == meal) {
+                                state.copy(recordList = records, dataError = null, isLoadingRecords = false)
+                            } else state
+                        }
                     }
             }
         }
@@ -169,7 +175,13 @@ class RecordViewModel(
         if (initialized && hasPendingForm()) return
         initialized = true
         explicitMealSelection = mealKey != null
-        _uiState.update { it.copy(currentMeal = mealKey ?: MealKey.fromCurrentTime()) }
+        _uiState.update { it.withSelection(meal = mealKey ?: MealKey.fromCurrentTime()) }
+        loadData()
+    }
+
+    private fun UiState.withSelection(date: String = currentDate, meal: MealKey = currentMeal): UiState {
+        if (date == currentDate && meal == currentMeal) return this
+        return copy(currentDate = date, currentMeal = meal, recordList = emptyList(), isLoadingRecords = true, dataError = null)
     }
 
     private fun hasPendingForm(): Boolean = _uiState.value.run {
@@ -184,7 +196,8 @@ class RecordViewModel(
      * 跳转到指定日期
      */
     fun pickDate(dateStr: String) {
-        _uiState.update { it.copy(currentDate = dateStr) }
+        _uiState.update { it.withSelection(date = dateStr) }
+        loadData()
     }
 
     // ==================== 时间刷新 ====================
@@ -194,7 +207,8 @@ class RecordViewModel(
      */
     fun refreshMealByTime() {
         if (explicitMealSelection || hasPendingForm()) return
-        _uiState.update { it.copy(currentMeal = MealKey.fromCurrentTime()) }
+        _uiState.update { it.withSelection(meal = MealKey.fromCurrentTime()) }
+        loadData()
     }
 
     // ==================== 餐次切换 ====================
@@ -203,20 +217,23 @@ class RecordViewModel(
         explicitMealSelection = true
         if (_uiState.value.currentMeal == meal) return
         resetForm()
-        _uiState.update { it.copy(currentMeal = meal) }
+        _uiState.update { it.withSelection(meal = meal) }
+        loadData()
     }
 
     // ==================== 日期切换 ====================
 
     fun prevDay() {
-        _uiState.update { it.copy(currentDate = DateUtils.prevDay(it.currentDate)) }
+        _uiState.update { it.withSelection(date = DateUtils.prevDay(it.currentDate)) }
+        loadData()
     }
 
     fun nextDay() {
         _uiState.update { state ->
             val next = DateUtils.nextDay(state.currentDate)
-            if (next <= DateUtils.today()) state.copy(currentDate = next) else state
+            if (next <= DateUtils.today()) state.withSelection(date = next) else state
         }
+        loadData()
     }
 
     // ==================== 表单输入 ====================

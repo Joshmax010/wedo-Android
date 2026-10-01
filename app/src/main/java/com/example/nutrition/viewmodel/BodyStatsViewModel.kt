@@ -60,7 +60,7 @@ class BodyStatsViewModel(
 
     private var dataJob: Job? = null
     private var dateJob: Job? = null
-    private var formRevision = 0L
+    private val editedDateFields = mutableSetOf<String>()
 
     init { initialize() }
 
@@ -78,19 +78,19 @@ class BodyStatsViewModel(
     // ==================== 表单输入 ====================
 
     fun onWeightInput(value: String) {
-        formRevision++
+        editedDateFields += "weight"
         _uiState.update { it.copy(weight = value) }
     }
     fun onBodyFatInput(value: String) {
-        formRevision++
+        editedDateFields += "bodyFat"
         _uiState.update { it.copy(bodyFat = value) }
     }
     fun onMuscleInput(value: String) {
-        formRevision++
+        editedDateFields += "muscle"
         _uiState.update { it.copy(muscle = value) }
     }
     fun onNoteInput(value: String) {
-        formRevision++
+        editedDateFields += "note"
         _uiState.update { it.copy(note = value) }
     }
 
@@ -103,6 +103,7 @@ class BodyStatsViewModel(
     fun selectDate(dateStr: String) {
         dateJob?.cancel()
         val changedDate = _uiState.value.selectedDate != dateStr
+        if (changedDate) editedDateFields.clear()
         _uiState.update { state ->
             state.copy(
                 selectedDate = dateStr, showDatePicker = false,
@@ -112,19 +113,18 @@ class BodyStatsViewModel(
                 note = if (changedDate) "" else state.note
             )
         }
-        val revision = formRevision
         dateJob = viewModelScope.launchWithErrorFeedback("读取该日身体记录失败，请重试", { message ->
             _uiState.update { it.copy(dateError = message) }
         }) {
             val existing = repository.getBodyRecord(dateStr).first()
             _uiState.update { it.copy(dateError = null) }
-            if (_uiState.value.selectedDate != dateStr || revision != formRevision) return@launchWithErrorFeedback
-            _uiState.update {
-                it.copy(
-                    weight = existing?.let { r -> UnitConverter.formatForInput(r.weightKg) } ?: "",
-                    bodyFat = existing?.bodyFatPercent?.let { v -> UnitConverter.formatForInput(v) } ?: "",
-                    muscle = existing?.muscleKg?.let { v -> UnitConverter.formatForInput(v) } ?: "",
-                    note = existing?.note ?: ""
+            if (_uiState.value.selectedDate != dateStr) return@launchWithErrorFeedback
+            _uiState.update { state ->
+                state.copy(
+                    weight = if ("weight" in editedDateFields) state.weight else existing?.let { r -> UnitConverter.formatForInput(r.weightKg) } ?: "",
+                    bodyFat = if ("bodyFat" in editedDateFields) state.bodyFat else existing?.bodyFatPercent?.let { v -> UnitConverter.formatForInput(v) } ?: "",
+                    muscle = if ("muscle" in editedDateFields) state.muscle else existing?.muscleKg?.let { v -> UnitConverter.formatForInput(v) } ?: "",
+                    note = if ("note" in editedDateFields) state.note else existing?.note ?: ""
                 )
             }
         }
