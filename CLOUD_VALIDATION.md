@@ -1,5 +1,62 @@
 # 云端验证记录
 
+2026-10-01，已完成四批 Android UI 改版及完成条件边界修正的完整云端验证。
+
+- 最新验证代码提交：`f3b1301f5dcccc589dc22c458fd9fa9712fe5be1`。
+- [成功的工作流运行](https://github.com/Joshmax010/wedo-Android/actions/runs/36864465400)。
+- [完整报告、JUnit XML、Lint 与构建日志](https://github.com/Joshmax010/wedo-Android/tree/codex/cloud-test-results/runs/36864465400)。
+- 应用版本 1.4.3（versionCode 5）、Room v4、备份 Schema v3。
+
+## 最新检查结果
+
+```bash
+bash gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug --max-workers=4 --console=plain
+```
+
+| 检查 | 结果 |
+|---|---|
+| 主代码编译，包括 Room KSP 与 Compose | 通过 |
+| JVM 单元测试 | 136 个通过，0 失败、0 错误、0 跳过，12 个测试类 |
+| Android Lint | 通过，0 错误、39 条既有警告，与清理阶段相比无新增警告 |
+| Gradle 总结果 | BUILD SUCCESSFUL，3 分 33 秒 |
+
+云端未打包 APK，未执行真机或模拟器测试。38 个 Room 设备用例及 UI 的实际显示、触摸、键盘、动画、系统导航适配待你本地检查，见 [统一回归清单](./LOCAL_REGRESSION_CHECKLIST.md)。
+
+### UI 分批提交与验证
+
+| 提交 | 范围 | 云端报告 |
+|---|---|---|
+| `5b75aa4` | 浅深色主题、外观偏好、公共字段颜色 | [121 个 JVM 用例通过](https://github.com/Joshmax010/wedo-Android/actions/runs/36858149297) |
+| `8bc2497` | 滚动导航、大标题、首页信息层级和空状态边界 | [123 个 JVM 用例通过](https://github.com/Joshmax010/wedo-Android/actions/runs/36859897788) |
+| `eaf8a4a` | 日期/餐次传递、历史编辑定位、周报摘要优先 | [125 个 JVM 用例通过](https://github.com/Joshmax010/wedo-Android/actions/runs/36861505927) |
+| `fdb614d`、`f3b1301` | 设置子页、模板布局、保存与完成反馈、热量上限边界修正 | [136 个 JVM 用例通过](https://github.com/Joshmax010/wedo-Android/actions/runs/36864465400) |
+
+首次第四批检查通过编译，但新增上限测试发现 `2200 / 2000 * 100` 可产生 `110.00000000000001`，从而误判恰好 110% 的热量。`f3b1301` 改为直接比较热量区间，保留测试并重跑全套检查，现已通过。该完成反馈规则独立于既有周报统计口径。
+
+代码复用合并了四页的生命周期事件收集、重复营养字段和 12 处字段配色；非超量进度条不创建持续条纹动画。相对 UI 改版前 `c207631`，主 Kotlin 源码从 70 个文件、11403 行变为 75 个文件、11576 行，净增 173 行，用于新增主题偏好、共享导航、完成判定和反馈；未新增依赖、数据库迁移或网络权限。
+
+### 最新 JVM 用例明细
+
+| 测试类 | 通过数 |
+|---|---:|
+| BackupManagerTest | 26 |
+| BackupReadFailureTest | 2 |
+| CalculatorTest | 35 |
+| DailyGoalTest | 8 |
+| DateUtilsTest | 41 |
+| InteropTest | 4 |
+| BodyStatsViewModelTest | 3 |
+| HomeViewModelTest | 2 |
+| RecordViewModelTest | 9 |
+| SettingsViewModelTest | 3 |
+| ViewModelOperationsTest | 2 |
+| WeeklyViewModelTest | 1 |
+| 合计 | 136 |
+
+UI 改版另增 15 个用例，覆盖零热量空状态、零缺口、历史日期/餐次写入、旧身体读取取消、完成条件边界，以及反馈读取失败不能误报已完成的写入失败。
+
+## 代码清理阶段历史记录
+
 2026-10-01，GitHub Actions 已完成代码清理后的完整验证。
 
 - 验证代码提交：`aa75c7090aa236758370e38c8c98cf4e9e9abb49`

@@ -11,7 +11,7 @@
 
 > 纯离线、隐私优先的营养记录工具。本地记录每日饮食与身体数据，自动汇总对比目标并生成周报 —— 全程不联网。
 
-「健身wedo」是同名微信小程序的 Android 原生版本，两端共享核心数据模型与备份 JSON Schema，备份文件可直接跨端迁移。当前版本 **v1.4.3**，处于**终版维护状态**：功能已冻结，仅保留必要的兼容性与工具链维护。
+「健身wedo」是同名微信小程序的 Android 原生版本，两端共享核心数据模型与备份 JSON Schema，备份文件可直接跨端迁移。当前发布版本为 **v1.4.3**；`codex/atomic-backup-import` 分支包含底层优化、代码清理与已确认的 UI 改版，待真机回归后再合并。
 
 ## 下载安装
 
@@ -60,6 +60,8 @@ apksigner verify --print-certs wedo-fitness-v1.4.3.apk
 ### 外观
 
 - **主题选择** — 支持跟随系统、浅色与深色，保存本机偏好；深色主文字为白色，浅色页面背景为纯白
+- **浏览与编辑** — 滚动时收起上下导航，反向滑动恢复；历史记录回填同一表单并自动定位，设置使用分组子页
+- **完成反馈** — 普通保存轻提示；今日主动饮食保存后首次满足全天目标时短暂庆祝
 
 ### 数据
 
@@ -151,7 +153,7 @@ keyPassword=<密码>
 
 ## 维护状态
 
-遵循语义化版本。当前 **v1.4.3** 为终版维护版本，功能已冻结。完整的架构说明、数据模型、数据库迁移记录与逐版本变更历史见 [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)。
+遵循语义化版本。当前发布版为 **v1.4.3**。功能分支改动待真机回归后再确定合并与发布版本。完整的架构说明、数据模型、数据库迁移记录与逐版本变更历史见 [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)。
 
 ## 开源协议
 
@@ -167,7 +169,7 @@ Copyright (c) 2026 Joshmax010
 
 > A fully offline, privacy-first nutrition tracker for Android. Log meals and body metrics locally, compare them against your goals and generate weekly reports — entirely on-device.
 
-**健身wedo** (wedo Fitness) is the native Android port of the WeChat Mini Program of the same name. Both ends share the same core data model and backup JSON schema, so backups migrate across platforms. Current version **v1.4.3**, in **final maintenance state** — feature-frozen, with compatibility and toolchain maintenance only.
+**健身wedo** (wedo Fitness) is the native Android port of the WeChat Mini Program of the same name. Both ends share the same core data model and backup JSON schema, so backups migrate across platforms. The latest release is **v1.4.3**. The `codex/atomic-backup-import` branch contains reliability improvements, code cleanup and the approved UI redesign, pending device testing before merging.
 
 ### Download
 
@@ -188,11 +190,13 @@ Verify the download: SHA-256 `119b0fe5be6c95ae4283b6d3e74bbb8a7833bbd81184ef3df6
 - **Metabolism** — body profile → BMR & TDEE via Mifflin-St Jeor, one-tap recommended macro targets
 - **Weekly report** — 7-day trends with hand-drawn Canvas charts, achievement rates, copy-to-clipboard summary
 - **Body stats** — weight / body fat / muscle mass history and trend charts
+- **Appearance** — persistent system/light/dark themes, scroll-aware navigation and grouped settings
+- **Goal feedback** — subtle save confirmation and a brief, once-per-day celebration after manually logging a completed day
 - **Backup & restore** — human-readable JSON, tolerant of older schemas, cross-platform with the Mini Program
 
 ### Tech Stack
 
-Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 121 unit tests.
+Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 136 unit tests.
 
 ### Build
 
