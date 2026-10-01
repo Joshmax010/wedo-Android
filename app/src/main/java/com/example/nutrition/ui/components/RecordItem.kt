@@ -67,6 +67,7 @@ fun RecordItem(
     onEdit: (String) -> Unit = {},
     onDelete: (String) -> Unit = {}
 ) {
+    val cardShape = RoundedCornerShape(16.dp)
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -93,11 +94,11 @@ fun RecordItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Error),
+                    .clip(cardShape)
+                    .background(if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) Error else BgCard),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                Row(
+                if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) Row(
                     modifier = Modifier.padding(end = 20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -117,14 +118,14 @@ fun RecordItem(
             }
         },
         enableDismissFromStartToEnd = false,
-        modifier = modifier
+        modifier = modifier.clip(cardShape)
     ) {
         // 卡片内容
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onEdit(record.id) },
-            shape = RoundedCornerShape(16.dp),
+            shape = cardShape,
             colors = CardDefaults.cardColors(containerColor = BgCard),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
