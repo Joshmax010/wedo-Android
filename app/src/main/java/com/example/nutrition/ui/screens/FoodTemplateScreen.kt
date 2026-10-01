@@ -32,7 +32,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.nutrition.ui.theme.nutritionFieldColors
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -125,7 +125,7 @@ fun FoodTemplateScreen(
             FloatingActionButton(
                 onClick = { viewModel.openAddDialog() },
                 containerColor = Primary,
-                contentColor = androidx.compose.ui.graphics.Color.White
+                contentColor = com.example.nutrition.ui.theme.TextInverse
             ) {
                 Icon(Icons.Default.Add, contentDescription = "新增模板")
             }
@@ -235,7 +235,7 @@ private fun QuickTagFilterBar(
                     Text(
                         text = tag,
                         fontSize = 12.sp,
-                        color = if (isSelected) androidx.compose.ui.graphics.Color.White else TextPrimary,
+                        color = if (isSelected) com.example.nutrition.ui.theme.TextInverse else TextPrimary,
                         fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                     )
                 }
@@ -299,12 +299,12 @@ private fun SelectedTagRow(
                     Text(
                         text = tag,
                         fontSize = 12.sp,
-                        color = androidx.compose.ui.graphics.Color.White
+                        color = com.example.nutrition.ui.theme.TextInverse
                     )
                     Text(
                         text = "×",
                         fontSize = 14.sp,
-                        color = androidx.compose.ui.graphics.Color.White,
+                        color = com.example.nutrition.ui.theme.TextInverse,
                         modifier = Modifier.clickable { onTagRemove(tag) }
                     )
                 }
@@ -344,10 +344,7 @@ private fun SearchBar(
             },
             singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
+            colors = nutritionFieldColors(),
             shape = RoundedCornerShape(8.dp)
         )
     }
@@ -362,9 +359,9 @@ private fun TemplateItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -496,7 +493,7 @@ private fun FilterDialog(viewModel: FoodTemplateViewModel, uiState: FoodTemplate
                                 Text(
                                     text = tag,
                                     fontSize = 13.sp,
-                                    color = if (isSelected) androidx.compose.ui.graphics.Color.White else TextPrimary,
+                                    color = if (isSelected) com.example.nutrition.ui.theme.TextInverse else TextPrimary,
                                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                                 )
                             }
@@ -596,12 +593,12 @@ private fun TemplateTagEditor(viewModel: FoodTemplateViewModel, uiState: FoodTem
                         Text(
                             text = tag,
                             fontSize = 12.sp,
-                            color = androidx.compose.ui.graphics.Color.White
+                            color = com.example.nutrition.ui.theme.TextInverse
                         )
                         Text(
                             text = "×",
                             fontSize = 14.sp,
-                            color = androidx.compose.ui.graphics.Color.White,
+                            color = com.example.nutrition.ui.theme.TextInverse,
                             modifier = Modifier.clickable { viewModel.removeTemplateTag(tag) }
                         )
                     }
@@ -622,10 +619,7 @@ private fun TemplateTagEditor(viewModel: FoodTemplateViewModel, uiState: FoodTem
                 placeholder = { Text("输入新标签，如 高蛋白", fontSize = 13.sp, color = TextPlaceholder) },
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
             OutlinedButton(
@@ -696,10 +690,7 @@ private fun TemplateFormField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
+            colors = nutritionFieldColors(),
             shape = RoundedCornerShape(8.dp)
         )
     }

@@ -58,7 +58,7 @@ fun MainScreen() {
     Scaffold(
         bottomBar = {
             NavigationBar(
-                containerColor = Color.White
+                containerColor = com.example.nutrition.ui.theme.BgMain
             ) {
                 NavigationItem.entries.forEach { item ->
                     val selected = when (item) {
@@ -94,7 +94,7 @@ fun MainScreen() {
                             selectedTextColor = TabSelected,
                             unselectedIconColor = TabUnselected,
                             unselectedTextColor = TabUnselected,
-                            indicatorColor = TabSelected.copy(alpha = 0.12f)
+                            indicatorColor = Color.Transparent
                         )
                     )
                 }

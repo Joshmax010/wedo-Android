@@ -124,9 +124,9 @@ fun RecordItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onEdit(record.id) },
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = BgCard),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Box(modifier = Modifier.padding(12.dp)) {
                 RecordItemContent(record = record)

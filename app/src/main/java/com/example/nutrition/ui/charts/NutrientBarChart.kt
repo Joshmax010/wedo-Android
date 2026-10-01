@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,8 @@ fun NutrientBarChart(
     bars: List<WeeklyViewModel.NutrientBar>,
     modifier: Modifier = Modifier
 ) {
+    val gridColor = com.example.nutrition.ui.theme.Divider
+    val labelColor = TextSecondary
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "宏量营养素每日摄入",
@@ -79,7 +82,7 @@ fun NutrientBarChart(
                 val yVal = (maxVal * 1.15 / ySteps * i).toInt()
                 val y = topPad + chartH - yVal * yScale
                 drawLine(
-                    color = Color(0xFFF0F0F0),
+                    color = gridColor,
                     start = Offset(leftPad, y),
                     end = Offset(size.width - rightPad, y),
                     strokeWidth = 1f
@@ -90,7 +93,7 @@ fun NutrientBarChart(
                         leftPad - 4.dp.toPx(),
                         y + 4.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
+                            color = labelColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.RIGHT
                         }
@@ -133,7 +136,7 @@ fun NutrientBarChart(
                         groupCenterX,
                         topPad + chartH + 16.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
+                            color = labelColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.CENTER
                         }

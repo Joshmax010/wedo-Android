@@ -26,7 +26,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.nutrition.ui.theme.nutritionFieldColors
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -321,12 +321,12 @@ private fun SaveAsTemplateTagEditor(viewModel: RecordViewModel, uiState: RecordV
                         Text(
                             text = tag,
                             fontSize = 12.sp,
-                            color = androidx.compose.ui.graphics.Color.White
+                            color = com.example.nutrition.ui.theme.TextInverse
                         )
                         Text(
                             text = "×",
                             fontSize = 14.sp,
-                            color = androidx.compose.ui.graphics.Color.White,
+                            color = com.example.nutrition.ui.theme.TextInverse,
                             modifier = Modifier.clickable { viewModel.removeSaveAsTemplateTag(tag) }
                         )
                     }
@@ -346,10 +346,7 @@ private fun SaveAsTemplateTagEditor(viewModel: RecordViewModel, uiState: RecordV
                 placeholder = { Text("输入新标签", fontSize = 13.sp, color = TextPlaceholder) },
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
             OutlinedButton(
@@ -500,9 +497,9 @@ private fun FormCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 标题
@@ -781,10 +778,7 @@ private fun DualUnitInput(
                 modifier = Modifier.padding(end = 12.dp)
             )
         },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Primary,
-            unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-        ),
+        colors = nutritionFieldColors(),
         shape = RoundedCornerShape(8.dp)
     )
 }
@@ -846,10 +840,7 @@ private fun FormField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
+            colors = nutritionFieldColors(),
             shape = RoundedCornerShape(8.dp)
         )
     }
@@ -904,10 +895,7 @@ private fun MicroFormRow(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
 

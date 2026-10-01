@@ -94,7 +94,7 @@ fun MealCard(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = if (isPressed) 2.dp else 4.dp,
+                elevation = 0.dp,
                 shape = RoundedCornerShape(8.dp)
             )
             .clip(RoundedCornerShape(8.dp))
@@ -177,7 +177,7 @@ fun MealCard(
                 Text(
                     text = "-",
                     fontSize = 14.sp,
-                    color = Color(0xFFCCCCCC)
+                    color = TextPlaceholder
                 )
             }
         }

@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,10 @@ fun WeightLineChart(
     records: List<BodyRecord>,
     modifier: Modifier = Modifier
 ) {
+    val gridColor = com.example.nutrition.ui.theme.Divider
+    val labelColor = TextSecondary
+    val lineColor = Primary
+    val pointColor = com.example.nutrition.ui.theme.BgCard
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "体重趋势（kg）",
@@ -68,7 +73,7 @@ fun WeightLineChart(
                 val yVal = lower + range * i / ySteps
                 val y = topPad + chartH - (chartH * i / ySteps).toFloat()
                 drawLine(
-                    color = Color(0xFFF0F0F0),
+                    color = gridColor,
                     start = Offset(leftPad, y),
                     end = Offset(size.width - rightPad, y),
                     strokeWidth = 1f
@@ -79,7 +84,7 @@ fun WeightLineChart(
                         leftPad - 4.dp.toPx(),
                         y + 4.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
+                            color = labelColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.RIGHT
                         }
@@ -106,8 +111,8 @@ fun WeightLineChart(
                     path = fillPath,
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Primary.copy(alpha = 0.25f),
-                            Primary.copy(alpha = 0.02f)
+                            lineColor.copy(alpha = 0.25f),
+                            lineColor.copy(alpha = 0.02f)
                         )
                     )
                 )
@@ -120,14 +125,14 @@ fun WeightLineChart(
                 }
                 drawPath(
                     path = linePath,
-                    color = Primary,
+                    color = lineColor,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
                 )
             }
 
             dataPoints.forEach { (point, record) ->
-                drawCircle(color = Primary, radius = 3.dp.toPx(), center = point)
-                drawCircle(color = Color.White, radius = 1.5.dp.toPx(), center = point)
+                drawCircle(color = lineColor, radius = 3.dp.toPx(), center = point)
+                drawCircle(color = pointColor, radius = 1.5.dp.toPx(), center = point)
 
                 drawContext.canvas.nativeCanvas.apply {
                     drawText(
@@ -135,7 +140,7 @@ fun WeightLineChart(
                         point.x,
                         point.y - 6.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.rgb(76, 175, 80)
+                            color = lineColor.toArgb()
                             textSize = 8.sp.toPx()
                             textAlign = android.graphics.Paint.Align.CENTER
                         }
@@ -145,7 +150,7 @@ fun WeightLineChart(
                         point.x,
                         topPad + chartH + 16.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
+                            color = labelColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.CENTER
                         }

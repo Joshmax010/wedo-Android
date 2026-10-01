@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,11 @@ fun CaloriesLineChart(
     targetCalories: Double,
     modifier: Modifier = Modifier
 ) {
+    val gridColor = com.example.nutrition.ui.theme.Divider
+    val labelColor = TextSecondary
+    val lineColor = Primary
+    val targetColor = Warning
+    val pointColor = com.example.nutrition.ui.theme.BgCard
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "每日热量摄入",
@@ -73,7 +79,7 @@ fun CaloriesLineChart(
                 val y = topPad + chartH - yVal * yScale.toFloat()
                 // 网格线
                 drawLine(
-                    color = Color(0xFFF0F0F0),
+                    color = gridColor,
                     start = Offset(leftPad, y),
                     end = Offset(size.width - rightPad, y),
                     strokeWidth = 1f
@@ -85,7 +91,7 @@ fun CaloriesLineChart(
                         leftPad - 4.dp.toPx(),
                         y + 4.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
+                            color = labelColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.RIGHT
                         }
@@ -97,7 +103,7 @@ fun CaloriesLineChart(
             if (targetCalories > 0) {
                 val targetY = topPad + chartH - (targetCalories * yScale).toFloat()
                 drawLine(
-                    color = Warning,
+                    color = targetColor,
                     start = Offset(leftPad, targetY),
                     end = Offset(size.width - rightPad, targetY),
                     strokeWidth = 1.5f,
@@ -112,7 +118,7 @@ fun CaloriesLineChart(
                         size.width - rightPad - 2.dp.toPx(),
                         targetY - 4.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.rgb(255, 152, 0)
+                            color = targetColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.RIGHT
                         }
@@ -140,8 +146,8 @@ fun CaloriesLineChart(
                     path = fillPath,
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Primary.copy(alpha = 0.25f),
-                            Primary.copy(alpha = 0.02f)
+                            lineColor.copy(alpha = 0.25f),
+                            lineColor.copy(alpha = 0.02f)
                         )
                     )
                 )
@@ -157,7 +163,7 @@ fun CaloriesLineChart(
                 }
                 drawPath(
                     path = linePath,
-                    color = Primary,
+                    color = lineColor,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(
                         width = 2.dp.toPx()
                     )
@@ -168,12 +174,12 @@ fun CaloriesLineChart(
             dataPoints.forEachIndexed { index, point ->
                 // 圆点
                 drawCircle(
-                    color = Primary,
+                    color = lineColor,
                     radius = 3.dp.toPx(),
                     center = point
                 )
                 drawCircle(
-                    color = Color.White,
+                    color = pointColor,
                     radius = 1.5.dp.toPx(),
                     center = point
                 )
@@ -185,7 +191,7 @@ fun CaloriesLineChart(
                         point.x,
                         topPad + chartH + 16.dp.toPx(),
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
+                            color = labelColor.toArgb()
                             textSize = 9.sp.toPx()
                             textAlign = android.graphics.Paint.Align.CENTER
                         }
@@ -200,7 +206,7 @@ fun CaloriesLineChart(
                             point.x,
                             point.y - 6.dp.toPx(),
                             android.graphics.Paint().apply {
-                                color = android.graphics.Color.rgb(76, 175, 80)
+                                color = lineColor.toArgb()
                                 textSize = 8.sp.toPx()
                                 textAlign = android.graphics.Paint.Align.CENTER
                             }

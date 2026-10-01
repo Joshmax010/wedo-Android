@@ -16,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,7 +26,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.nutrition.ui.theme.nutritionFieldColors
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -62,6 +65,8 @@ import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.ui.theme.Warning
+import com.example.nutrition.ui.theme.LocalAppearance
+import com.example.nutrition.ui.theme.ThemeMode
 import com.example.nutrition.viewmodel.SettingsViewModel
 import com.example.nutrition.viewmodel.UIEvent
 
@@ -128,6 +133,8 @@ fun SettingsScreen(
                 onBodyStats = onNavigateToBodyStats
             )
 
+            AppearanceCard()
+
             // ========== 数据管理 ==========
             DataManagementCard(viewModel = viewModel)
 
@@ -179,14 +186,42 @@ fun SettingsScreen(
 // ==================== 营养目标卡片 ====================
 
 @Composable
+private fun AppearanceCard() {
+    val appearance = LocalAppearance.current
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = BgCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(16.dp).selectableGroup()) {
+            SectionTitle("外观")
+            ThemeMode.entries.forEach { mode ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().selectable(
+                        selected = appearance.mode == mode,
+                        role = Role.RadioButton,
+                        onClick = { appearance.select(mode) }
+                    ).padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = appearance.mode == mode, onClick = null)
+                    Text(mode.label, color = TextPrimary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TargetsCard(viewModel: SettingsViewModel, uiState: SettingsViewModel.UiState) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("每日营养目标")
@@ -262,9 +297,9 @@ private fun FeaturesCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("功能")
@@ -293,9 +328,9 @@ private fun DataManagementCard(viewModel: SettingsViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("数据管理")
@@ -328,9 +363,9 @@ private fun AboutCard(viewModel: SettingsViewModel, uiState: SettingsViewModel.U
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("关于")
@@ -415,10 +450,7 @@ private fun ImportModal(viewModel: SettingsViewModel, uiState: SettingsViewModel
                             Text("在此粘贴导出的 JSON 数据", color = TextPlaceholder)
                         },
                         textStyle = TextStyle(fontSize = 13.sp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
-                            unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                        ),
+                        colors = nutritionFieldColors(),
                         shape = RoundedCornerShape(8.dp)
                     )
 
@@ -580,10 +612,7 @@ private fun TargetField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
+            colors = nutritionFieldColors(),
             shape = RoundedCornerShape(8.dp)
         )
     }
@@ -616,10 +645,7 @@ private fun MicroTargetRow(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
             Box(
@@ -710,9 +736,9 @@ private fun BodyProfileCard(viewModel: SettingsViewModel, uiState: SettingsViewM
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("身体档案")
@@ -841,10 +867,7 @@ private fun ProfileNumberField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
+            colors = nutritionFieldColors(),
             shape = RoundedCornerShape(8.dp)
         )
     }

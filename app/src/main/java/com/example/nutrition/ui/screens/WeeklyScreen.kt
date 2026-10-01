@@ -216,9 +216,9 @@ private fun ChartCard(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
             content()
@@ -238,9 +238,9 @@ private fun SummaryCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 标题
@@ -344,7 +344,7 @@ private fun NutrientRateRow(rate: WeeklyViewModel.NutrientRateRow) {
                 .weight(1f)
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFFF0F0F0))
+                .background(com.example.nutrition.ui.theme.BgTag)
         ) {
             val fillPercent = min(rate.rate, 100.0).toFloat() / 100f
             val fillColor = if (rate.rate > 100) Error else Primary
@@ -377,9 +377,9 @@ private fun MicroTableCard(rows: List<WeeklyViewModel.MicroRow>) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -394,7 +394,7 @@ private fun MicroTableCard(rows: List<WeeklyViewModel.MicroRow>) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFFAFAFA))
+                    .background(com.example.nutrition.ui.theme.BgTag)
                     .padding(vertical = 6.dp, horizontal = 4.dp)
             ) {
                 TableCell("营养素", Modifier.weight(0.3f), true)

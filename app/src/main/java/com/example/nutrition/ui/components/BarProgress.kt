@@ -68,6 +68,7 @@ fun BarProgress(
     overflowColor: Color = Error,
     warningThreshold: Float = 80f
 ) {
+    val trackColor = com.example.nutrition.ui.theme.BgTag
     // 计算进度
     val rawPercent = if (target > 0) (current / target * 100).toInt() else 0
     val isOverflow = rawPercent > 100
@@ -135,7 +136,7 @@ fun BarProgress(
                     text = formatNumber(displayCurrent),
                     fontSize = valueFontSize,
                     fontWeight = FontWeight.SemiBold,
-                    color = barColor
+                    color = TextPrimary
                 )
                 Text(
                     text = "/",
@@ -160,7 +161,7 @@ fun BarProgress(
             // 轨道背景
             Canvas(modifier = Modifier.fillMaxWidth().height(trackHeight)) {
                 drawRect(
-                    color = Color(0xFFF0F0F0),
+                    color = trackColor,
                     size = Size(this.size.width, this.size.height)
                 )
             }
