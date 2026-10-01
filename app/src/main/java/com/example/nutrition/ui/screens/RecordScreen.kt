@@ -1,8 +1,6 @@
 package com.example.nutrition.ui.screens
 
 import com.example.nutrition.ui.components.ObserveUiEvents
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +34,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import com.example.nutrition.ui.theme.nutritionFieldColors
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +46,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,10 +96,8 @@ fun RecordScreen(
     val scrollState = rememberScrollState()
     val chrome = LocalPageChrome.current
     var editRequest by remember { mutableIntStateOf(0) }
-    val atTop by remember { derivedStateOf { scrollState.value == 0 } }
     SideEffect {
         chrome.editing = uiState.editingId != null
-        chrome.collapsed = !atTop
     }
     DisposableEffect(chrome) { onDispose { chrome.editing = false } }
 
@@ -137,14 +134,13 @@ fun RecordScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
         ) {
-            AnimatedVisibility(visible = atTop) {
-                com.example.nutrition.ui.navigation.PageTitle("录入", "按餐记录，按克重换算", modifier = Modifier.padding(horizontal = 16.dp), trackScroll = false)
-            }
+            com.example.nutrition.ui.navigation.PageTitle("录入", "按餐记录，按克重换算", modifier = Modifier.padding(horizontal = 16.dp))
             uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
             uiState.templateError?.let { DataLoadError(it, viewModel::loadData) }
-            AnimatedVisibility(visible = chrome.visible || chrome.editing || chrome.keyboardOpen) {
-                Column {
+            Column {
                     // ========== 餐次 Tab ==========
                     MealTabs(
                         currentMeal = uiState.currentMeal,
@@ -173,9 +169,8 @@ fun RecordScreen(
                         }
                     )
 
-                }
             }
-            Column(Modifier.weight(1f).verticalScroll(scrollState)) {
+            Column {
                 // ========== 录入表单 ==========
                 FormCard(
                     foodName = uiState.foodName,
@@ -233,12 +228,14 @@ fun RecordScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         uiState.recordList.forEach { record ->
-                            RecordItem(
-                                record = record,
-                                isDismissed = uiState.deleteConfirm?.id == record.id,
-                                onEdit = { id -> viewModel.editRecord(id); editRequest++ },
-                                onDelete = { id -> viewModel.requestDelete(id) }
-                            )
+                            key(record.id) {
+                                RecordItem(
+                                    record = record,
+                                    isDismissed = uiState.deleteConfirm?.id == record.id,
+                                    onEdit = { id -> viewModel.editRecord(id); editRequest++ },
+                                    onDelete = { id -> viewModel.requestDelete(id) }
+                                )
+                            }
                         }
                         // 底部留白
                         Box(modifier = Modifier.height(24.dp))
@@ -410,11 +407,11 @@ private fun MealTabs(
 ) {
     val tabIndex = MealKey.entries.indexOf(currentMeal).coerceAtLeast(0)
 
-    ScrollableTabRow(
+    TabRow(
         selectedTabIndex = tabIndex,
+        modifier = Modifier.fillMaxWidth(),
         containerColor = BgCard,
         contentColor = Primary,
-        edgePadding = 0.dp,
         divider = {}
     ) {
         MealKey.entries.forEach { meal ->
