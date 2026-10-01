@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.domain.usecase.BackupManagerTest" tests="26" skipped="0" failures="0" errors="0" timestamp="2026-10-01T12:48:06.204Z" hostname="runnervm8df0l" time="0.52">
+  <properties/>
+  <testcase name="verifyExportIntegrity - 非法 JSON" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.078"/>
+  <testcase name="importData - 非法 JSON" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.199"/>
+  <testcase name="validateBackup - records 中餐次不是数组" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.03"/>
+  <testcase name="validateBackup - 版本过高不兼容" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.007"/>
+  <testcase name="importData - 微量营养素正确导入" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.049"/>
+  <testcase name="verifyExportIntegrity - app 值不匹配" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.001"/>
+  <testcase name="verifyExportIntegrity - 缺少 data 字段" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.0"/>
+  <testcase name="previewData - 空记录" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.035"/>
+  <testcase name="verifyExportIntegrity - 缺少 schemaVersion" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.001"/>
+  <testcase name="verifyExportIntegrity - 缺少 exportedAt" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.0"/>
+  <testcase name="importData - records 中餐次数组缺失补空" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.008"/>
+  <testcase name="importData - 正常导入" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.014"/>
+  <testcase name="importData - meta 缺失字段补默认值" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.002"/>
+  <testcase name="verifyExportIntegrity - 缺少 app 字段" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.001"/>
+  <testcase name="verifyExportIntegrity - 合法 JSON 通过" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.006"/>
+  <testcase name="previewData - 非法 JSON" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.001"/>
+  <testcase name="verifyExportIntegrity - 缺少 targets" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.002"/>
+  <testcase name="importData - 校验不通过" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.006"/>
+  <testcase name="validateBackup - 合法数据" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.008"/>
+  <testcase name="importData - targets 缺失字段补零" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.007"/>
+  <testcase name="exportData - 正常导出" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.013"/>
+  <testcase name="validateBackup - app 标识不匹配" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.001"/>
+  <testcase name="importData - records 完全缺失返回空" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.007"/>
+  <testcase name="previewData - 正确生成预览" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.006"/>
+  <testcase name="exportData - 空数据也能导出" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.005"/>
+  <testcase name="importData - 摘要包含天数和条数" classname="com.example.nutrition.domain.usecase.BackupManagerTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
