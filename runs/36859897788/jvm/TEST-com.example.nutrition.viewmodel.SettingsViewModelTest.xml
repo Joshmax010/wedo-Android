@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.viewmodel.SettingsViewModelTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-01T12:12:36.317Z" hostname="runnervm8df0l" time="0.022">
+  <properties/>
+  <testcase name="returningToPage_preservesDraft_withoutReloadingTargets" classname="com.example.nutrition.viewmodel.SettingsViewModelTest" time="0.012"/>
+  <testcase name="failedRead_blocksSaving_andCanBeRetried" classname="com.example.nutrition.viewmodel.SettingsViewModelTest" time="0.003"/>
+  <testcase name="delayedInitialRead_doesNotOverwriteUserInput" classname="com.example.nutrition.viewmodel.SettingsViewModelTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
