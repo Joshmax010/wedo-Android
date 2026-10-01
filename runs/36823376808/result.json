@@ -1,0 +1,20 @@
+{
+  "commit": "0344ca099d08e3a2546724ac41ab24ae9e8c565e",
+  "job_status": "cancelled",
+  "suites": {
+    "jvm": {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "report_files": 0
+    },
+    "room": {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "report_files": 0
+    }
+  }
+}
