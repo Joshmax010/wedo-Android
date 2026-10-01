@@ -98,16 +98,16 @@ fun BarProgress(
     }
 
     // 条纹动画偏移（超量时启用）
-    val infiniteTransition = rememberInfiniteTransition(label = "stripe")
-    val stripeOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 28f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "stripeOffset"
-    )
+    val stripeOffset = if (isOverflow) {
+        val transition = rememberInfiniteTransition(label = "stripe")
+        val offset by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 28f,
+            animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
+            label = "stripeOffset"
+        )
+        offset
+    } else 0f
 
     // 尺寸参数
     val trackHeight: Dp = if (mini) 5.dp else 8.dp

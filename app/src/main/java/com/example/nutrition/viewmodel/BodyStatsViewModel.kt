@@ -185,7 +185,7 @@ class BodyStatsViewModel(
         viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.saveBodyRecord(record)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
-                is Resource.Success -> sendEvent(UIEvent.ShowToast("已保存"))
+                is Resource.Success -> sendEvent(UIEvent.SaveSuccess())
             }
         }
     }

@@ -1,6 +1,8 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModelStore
+import com.example.nutrition.domain.model.NutritionTargets
+import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.domain.model.DayRecords
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.MealKey
@@ -44,6 +46,57 @@ class RecordViewModelTest {
         viewModel.saveRecord()
         runCurrent()
         assertEquals(2, repository.getDayRecords(date).first().dinner.size)
+    }
+
+    @Test
+    fun successfulTodaySave_reportsGoalEligibility() = runTest {
+        val repository = BackupManagerTest.FakeRepository()
+        repository.setTargets(NutritionTargets(2000.0, 120.0, 60.0, 250.0, emptyList()))
+        val viewModel = RecordViewModel(repository)
+        store.put("record", viewModel)
+        viewModel.initWithMeal(MealKey.BREAKFAST, DateUtils.today())
+        runCurrent()
+        viewModel.onCaloriesInput("2000")
+        viewModel.onProteinInput("120")
+        viewModel.onFatInput("60")
+        viewModel.onCarbsInput("250")
+        viewModel.saveRecord()
+        runCurrent()
+        assertEquals(UIEvent.SaveSuccess(DateUtils.today(), true, true), viewModel.events.first())
+    }
+
+    @Test
+    fun successfulHistoricalSave_doesNotRequestGoalFeedback() = runTest {
+        val repository = BackupManagerTest.FakeRepository()
+        repository.setTargets(NutritionTargets(2000.0, 120.0, 60.0, 250.0, emptyList()))
+        val viewModel = RecordViewModel(repository)
+        store.put("record", viewModel)
+        viewModel.initWithMeal(MealKey.BREAKFAST, "2020-01-01")
+        runCurrent()
+        viewModel.onCaloriesInput("2000")
+        viewModel.onProteinInput("120")
+        viewModel.onFatInput("60")
+        viewModel.onCarbsInput("250")
+        viewModel.saveRecord()
+        runCurrent()
+        assertEquals(UIEvent.SaveSuccess(), viewModel.events.first())
+    }
+
+    @Test
+    fun optionalFeedbackReadFailure_doesNotReportACompletedWriteAsFailed() = runTest {
+        val backing = BackupManagerTest.FakeRepository()
+        val repository = object : LocalStorageRepository by backing {
+            override fun getTargets() = flow<NutritionTargets?> { error("feedback read failed") }
+        }
+        val viewModel = RecordViewModel(repository)
+        store.put("record", viewModel)
+        viewModel.initWithMeal(MealKey.BREAKFAST, DateUtils.today())
+        runCurrent()
+        viewModel.onCaloriesInput("300")
+        viewModel.saveRecord()
+        runCurrent()
+        assertEquals(1, backing.getDayRecords(DateUtils.today()).first().breakfast.size)
+        assertEquals(UIEvent.SaveSuccess(), viewModel.events.first())
     }
 
     @Test

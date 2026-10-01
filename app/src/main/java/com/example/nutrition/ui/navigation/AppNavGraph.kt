@@ -1,6 +1,13 @@
 package com.example.nutrition.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.navigation.NavBackStackEntry
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.nutrition.NutritionApp
+import com.example.nutrition.viewmodel.SettingsViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -12,6 +19,7 @@ import com.example.nutrition.ui.screens.FoodTemplateScreen
 import com.example.nutrition.ui.screens.HomeScreen
 import com.example.nutrition.ui.screens.RecordScreen
 import com.example.nutrition.ui.screens.SettingsScreen
+import com.example.nutrition.ui.screens.SettingsSection
 import com.example.nutrition.ui.screens.WeeklyScreen
 
 /**
@@ -50,7 +58,10 @@ fun AppNavGraph(navController: NavHostController) {
         composable<SettingsRoute> {
             SettingsScreen(
                 onNavigateToTemplates = { navController.navigate(TemplatesRoute) },
-                onNavigateToBodyStats = { navController.navigate(BodyStatsRoute) }
+                onNavigateToBodyStats = { navController.navigate(BodyStatsRoute) },
+                onNavigateToTargets = { navController.navigate(NutritionSettingsRoute) },
+                onNavigateToData = { navController.navigate(DataSettingsRoute) },
+                onNavigateToAbout = { navController.navigate(AboutRoute) }
             )
         }
         composable<TemplatesRoute> {
@@ -59,5 +70,23 @@ fun AppNavGraph(navController: NavHostController) {
         composable<BodyStatsRoute> {
             BodyStatsScreen()
         }
+        composable<NutritionSettingsRoute> { entry ->
+            SettingsScreen(section = SettingsSection.TARGETS, viewModel = settingsViewModel(navController, entry))
+        }
+        composable<DataSettingsRoute> { entry ->
+            SettingsScreen(section = SettingsSection.DATA, viewModel = settingsViewModel(navController, entry))
+        }
+        composable<AboutRoute> { entry ->
+            SettingsScreen(section = SettingsSection.ABOUT, viewModel = settingsViewModel(navController, entry))
+        }
     }
+}
+
+/** Subpages share the parent settings draft and its existing save/import logic. */
+@Composable
+private fun settingsViewModel(navController: NavHostController, entry: NavBackStackEntry): SettingsViewModel {
+    val parent = remember(entry) { navController.getBackStackEntry(SettingsRoute) }
+    return viewModel(viewModelStoreOwner = parent, factory = viewModelFactory {
+        initializer { SettingsViewModel(NutritionApp.instance.repository, NutritionApp.instance.backupManager) }
+    })
 }

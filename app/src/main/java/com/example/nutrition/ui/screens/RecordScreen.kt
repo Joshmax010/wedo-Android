@@ -1,6 +1,6 @@
 package com.example.nutrition.ui.screens
 
-import android.widget.Toast
+import com.example.nutrition.ui.components.ObserveUiEvents
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
@@ -45,7 +45,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -76,7 +75,6 @@ import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.viewmodel.RecordViewModel
-import com.example.nutrition.viewmodel.UIEvent
 import java.time.LocalDate
 
 /**
@@ -129,16 +127,7 @@ fun RecordScreen(
     }
 
     // 一次性事件（Toast）
-    LaunchedEffect(viewModel, lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viewModel.events.collect { event ->
-                when (event) {
-                    is UIEvent.ShowToast ->
-                        Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
+    ObserveUiEvents(viewModel.events, blocked = uiState.pendingTemplate != null || uiState.deleteConfirm != null || uiState.showNutrientPicker)
 
     Box(
         modifier = Modifier

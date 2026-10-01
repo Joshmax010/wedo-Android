@@ -38,3 +38,12 @@ object TemplatesRoute : AppRoute
 /** 设置内二级页 - 身体数据 */
 @Serializable
 object BodyStatsRoute : AppRoute
+
+@Serializable
+object NutritionSettingsRoute : AppRoute
+
+@Serializable
+object DataSettingsRoute : AppRoute
+
+@Serializable
+object AboutRoute : AppRoute

@@ -7,5 +7,10 @@ package com.example.nutrition.viewmodel
  * 替代原来用 mutableStateOf 承载 toastMessage 导致的重复触发/消费竞态问题
  */
 sealed interface UIEvent {
+    data class SaveSuccess(
+        val date: String? = null,
+        val macrosComplete: Boolean = false,
+        val dayComplete: Boolean = false
+    ) : UIEvent
     data class ShowToast(val message: String) : UIEvent
 }

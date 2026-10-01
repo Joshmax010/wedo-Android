@@ -38,6 +38,14 @@ import kotlin.math.sign
 /** All scrolling pages share navigation visibility; content keeps consuming the scroll. */
 @Stable
 class PageChrome(private val threshold: Float) {
+    data class Notice(val id: Int, val message: String, val celebration: Boolean)
+    var notice by mutableStateOf<Notice?>(null)
+    private var feedbackId = 0
+    fun showFeedback(message: String, celebration: Boolean) {
+        visible = true
+        notice = Notice(++feedbackId, message, celebration)
+    }
+
     var visible by mutableStateOf(true)
     var collapsed by mutableStateOf(false)
     var editing by mutableStateOf(false)
@@ -64,6 +72,7 @@ class PageChrome(private val threshold: Float) {
         collapsed = true
         editing = false
         distance = 0f
+        notice = null
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.nutrition.ui
 
+import com.example.nutrition.ui.components.FeedbackOverlay
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -69,6 +70,9 @@ fun MainScreen() {
     val title = rootPage?.displayName ?: when {
         destination?.hasRoute<TemplatesRoute>() == true -> "食物模板"
         destination?.hasRoute<BodyStatsRoute>() == true -> "身体记录"
+        destination?.hasRoute<NutritionSettingsRoute>() == true -> "档案与目标"
+        destination?.hasRoute<DataSettingsRoute>() == true -> "数据管理"
+        destination?.hasRoute<AboutRoute>() == true -> "关于"
         else -> "设置"
     }
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
@@ -81,7 +85,7 @@ fun MainScreen() {
             Toast.makeText(context, "再按一次退出", Toast.LENGTH_SHORT).show()
         }
     }
-    val showChrome = chrome.visible || chrome.editing || keyboardOpen
+    val showChrome = chrome.visible || chrome.editing || keyboardOpen || chrome.notice != null
     CompositionLocalProvider(LocalPageChrome provides chrome) {
         Scaffold(
             modifier = Modifier.nestedScroll(chrome.scrollConnection),
@@ -107,7 +111,7 @@ fun MainScreen() {
                                 Text("wedo", color = Primary, fontWeight = FontWeight.Bold, modifier = Modifier.width(84.dp))
                             }
                             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                Text(if (chrome.collapsed) title else "", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                                Text(chrome.notice?.message ?: if (chrome.collapsed) title else "", color = TextPrimary, fontWeight = FontWeight.SemiBold)
                             }
                             Box(Modifier.width(84.dp))
                         }
@@ -148,7 +152,10 @@ fun MainScreen() {
                 }
             }
         ) { padding ->
-            Box(Modifier.padding(padding)) { AppNavGraph(navController) }
+            Box(Modifier.padding(padding)) {
+                AppNavGraph(navController)
+                FeedbackOverlay(chrome)
+            }
         }
     }
 }

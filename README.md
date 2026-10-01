@@ -77,7 +77,7 @@ apksigner verify --print-certs wedo-fitness-v1.4.3.apk
 | 存储 | Room 2.8.4（读操作返回 `Flow`，写操作返回 `Resource<Unit>`） |
 | 序列化 | kotlinx.serialization 1.6.3 |
 | 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.2 |
-| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（121 个单元测试）＋ Room instrumentation 测试 |
+| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（136 个单元测试）＋ Room instrumentation 测试 |
 
 最低支持 Android 8.0（API 26），targetSdk / compileSdk 34。
 
@@ -103,7 +103,7 @@ app/src/main/java/com/example/nutrition/
 └── viewmodel/             # 各页面 ViewModel 与事件定义
 ```
 
-主源码共 73 个 Kotlin 文件。
+主源码共 75 个 Kotlin 文件。
 
 ## 构建与开发
 

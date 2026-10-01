@@ -23,6 +23,16 @@ class AppearancePreferences(context: Context) {
         preferences.edit { putString("theme", mode.name) }
         this.mode = mode
     }
+    /** Local, persistent deduplication; imports never invoke these methods. */
+    fun claimCompletion(date: String, wholeDay: Boolean): Boolean {
+        val key = if (wholeDay) "lastCelebratedDate" else "lastMacroFeedbackDate"
+        if (preferences.getString(key, null) == date) return false
+        preferences.edit {
+            putString(key, date)
+            if (wholeDay) putString("lastMacroFeedbackDate", date)
+        }
+        return true
+    }
 }
 
 val LocalAppearance = staticCompositionLocalOf<AppearancePreferences> {

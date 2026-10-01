@@ -9,11 +9,14 @@ import com.example.nutrition.domain.model.MealMicro
 import com.example.nutrition.domain.model.MealRecord
 import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.repository.LocalStorageRepository
+import com.example.nutrition.domain.usecase.DailyGoal
 import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.domain.usecase.FoodTemplateMapper
 import com.example.nutrition.domain.usecase.MealFormValidator
 import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.components.NutrientConstantItem
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -499,8 +502,9 @@ class RecordViewModel(
                 return@launchWithErrorFeedback
             }
 
+            val feedback = savedFeedback(currentDate)
             if (revision != formRevision) {
-                sendEvent(UIEvent.ShowToast("已保存"))
+                sendEvent(feedback)
                 return@launchWithErrorFeedback
             }
 
@@ -509,11 +513,25 @@ class RecordViewModel(
                 _uiState.update {
                     it.copy(pendingTemplate = FoodTemplateMapper.fromMealRecord(record))
                 }
-                sendEvent(UIEvent.ShowToast("已保存"))
+                sendEvent(feedback)
             } else {
                 resetForm()
-                sendEvent(UIEvent.ShowToast("已保存"))
+                sendEvent(feedback)
             }
+        }
+    }
+
+    /** A feedback read failure cannot change a completed write into a save error. */
+    private suspend fun savedFeedback(date: String): UIEvent.SaveSuccess {
+        if (!DateUtils.isToday(date)) return UIEvent.SaveSuccess()
+        return try {
+            val targets = repository.getTargets().first() ?: NutrientConstants.getDefaultTargets()
+            val goal = DailyGoal.evaluate(repository.getDayRecords(date).first(), targets)
+            UIEvent.SaveSuccess(date, goal.macrosComplete, goal.dayComplete)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            UIEvent.SaveSuccess()
         }
     }
 
