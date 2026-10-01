@@ -41,6 +41,32 @@ class HomeViewModelTest {
         store.put("home", viewModel)
         runCurrent()
         assertEquals("0", viewModel.uiState.value.ringCenterText)
+        assertEquals("已达目标", viewModel.uiState.value.ringGapLabel)
         assertEquals(100, viewModel.uiState.value.ringPercent)
+    }
+
+    @Test fun belowTargetShowsPositiveAmountWithRemainingLabel() = runTest {
+        val repository = BackupManagerTest.FakeRepository()
+        val today = DateUtils.today()
+        repository.setTargets(NutrientConstants.getDefaultTargets().copy(calories = 2000.0))
+        repository.setDayRecords(today, DayRecords(today, lunch = listOf(MealRecord(calories = 133.0))))
+        val viewModel = HomeViewModel(repository)
+        store.put("home", viewModel)
+        runCurrent()
+        assertEquals("1867", viewModel.uiState.value.ringCenterText)
+        assertEquals("还差", viewModel.uiState.value.ringGapLabel)
+    }
+
+    @Test fun smallExcessUsesActualAmountEvenWhenPercentRoundsToOneHundred() = runTest {
+        val repository = BackupManagerTest.FakeRepository()
+        val today = DateUtils.today()
+        repository.setTargets(NutrientConstants.getDefaultTargets().copy(calories = 2000.0))
+        repository.setDayRecords(today, DayRecords(today, lunch = listOf(MealRecord(calories = 2001.0))))
+        val viewModel = HomeViewModel(repository)
+        store.put("home", viewModel)
+        runCurrent()
+        assertEquals(100, viewModel.uiState.value.ringPercent)
+        assertEquals("1", viewModel.uiState.value.ringCenterText)
+        assertEquals("超出", viewModel.uiState.value.ringGapLabel)
     }
 }
