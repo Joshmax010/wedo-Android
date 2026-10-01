@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.viewmodel.ViewModelOperationsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-01T15:06:08.343Z" hostname="runnervm8df0l" time="0.011">
+  <properties/>
+  <testcase name="cancellation_doesNotReportAnOperationFailure" classname="com.example.nutrition.viewmodel.ViewModelOperationsTest" time="0.003"/>
+  <testcase name="operationFailure_reportsFeedback" classname="com.example.nutrition.viewmodel.ViewModelOperationsTest" time="0.008"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
