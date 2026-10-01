@@ -3,19 +3,21 @@ package com.example.nutrition.ui
 import com.example.nutrition.ui.components.FeedbackOverlay
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -34,8 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -86,21 +90,40 @@ fun MainScreen() {
         }
     }
     val showChrome = chrome.visible || chrome.editing || keyboardOpen || chrome.notice != null
-    CompositionLocalProvider(LocalPageChrome provides chrome) {
+    val topBarVisibility by animateFloatAsState(
+        targetValue = if (rootPage == null || showChrome) 1f else 0f,
+        animationSpec = tween(180), label = "topBarVisibility"
+    )
+    val bottomBarVisibility by animateFloatAsState(
+        targetValue = if (showChrome) 1f else 0f,
+        animationSpec = tween(180), label = "bottomBarVisibility"
+    )
+    val topBarHeight = 48.dp
+    val pagePadding = PaddingValues(
+        top = topBarHeight,
+        bottom = if (rootPage != null && !keyboardOpen) 96.dp else 16.dp
+    )
+    CompositionLocalProvider(LocalPageChrome provides chrome, LocalPageContentPadding provides pagePadding) {
         Scaffold(
-            modifier = Modifier.nestedScroll(chrome.scrollConnection),
+            modifier = Modifier.fillMaxSize().imePadding().nestedScroll(chrome.scrollConnection),
             containerColor = BgMain,
             contentColor = TextPrimary,
-            topBar = {
-                AnimatedVisibility(
-                    visible = showChrome,
-                    enter = expandVertically() + slideInVertically { -it },
-                    exit = shrinkVertically() + slideOutVertically { -it }
+            contentWindowInsets = WindowInsets.safeDrawing
+        ) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).clipToBounds()
+                .onGloballyPositioned { chrome.topBarBottom = it.positionInRoot().y + with(density) { topBarHeight.toPx() } }) {
+                AppNavGraph(navController)
+                Box(Modifier.padding(top = topBarHeight)) { FeedbackOverlay(chrome) }
+                // Overlay translations keep every scroll viewport stable throughout the animation.
+                androidx.compose.material3.Surface(
+                    color = BgMain.copy(alpha = 0.94f),
+                    modifier = Modifier.align(Alignment.TopCenter).graphicsLayer {
+                        translationY = (topBarVisibility - 1f) * size.height
+                        alpha = topBarVisibility
+                    }
                 ) {
-                    androidx.compose.material3.Surface(color = BgMain.copy(alpha = 0.94f)) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 12.dp)
-                                .onGloballyPositioned { chrome.topBarBottom = it.boundsInRoot().bottom },
+                            modifier = Modifier.fillMaxWidth().height(topBarHeight).padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (rootPage == null) {
@@ -115,22 +138,23 @@ fun MainScreen() {
                             }
                             Box(Modifier.width(84.dp))
                         }
-                    }
                 }
-            },
-            bottomBar = {
-                AnimatedVisibility(
-                    visible = showChrome,
-                    enter = expandVertically() + slideInVertically { it },
-                    exit = shrinkVertically() + slideOutVertically { it }
-                ) {
-                    NavigationBar(containerColor = BgMain.copy(alpha = 0.94f), tonalElevation = 0.dp) {
+                // Secondary settings pages use their back button and never reserve a tab-bar area.
+                if (rootPage != null && !keyboardOpen) {
+                    NavigationBar(
+                        containerColor = BgMain.copy(alpha = 0.94f), tonalElevation = 0.dp,
+                        windowInsets = WindowInsets(0, 0, 0, 0),
+                        modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer {
+                            translationY = (1f - bottomBarVisibility) * size.height
+                            alpha = bottomBarVisibility
+                        }
+                    ) {
                         NavigationItem.entries.forEach { item ->
-                            val selected = rootPage == item || rootPage == null && item == NavigationItem.SETTINGS
+                            val selected = rootPage == item
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = {
-                                    if (!selected || rootPage == null) {
+                                    if (!selected) {
                                         navController.navigate(item.route) {
                                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                             launchSingleTop = true
@@ -150,11 +174,6 @@ fun MainScreen() {
                         }
                     }
                 }
-            }
-        ) { padding ->
-            Box(Modifier.padding(padding)) {
-                AppNavGraph(navController)
-                FeedbackOverlay(chrome)
             }
         }
     }
