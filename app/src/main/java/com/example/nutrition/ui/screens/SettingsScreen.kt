@@ -118,6 +118,7 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
                 .padding(horizontal = 16.dp)
         ) {
             com.example.nutrition.ui.navigation.PageTitle(section.title, section.subtitle)
