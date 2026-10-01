@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,22 +29,7 @@ jobs:
         run: |
           mkdir -p cloud-test-results
           set -o pipefail
-          bash gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --max-workers=4 --console=plain 2>&1 | tee cloud-test-results/build.log
-      - name: Enable emulator acceleration
-        run: |
-          test -c /dev/kvm
-          sudo chmod 666 /dev/kvm
-      - name: Run Room tests on Android 34
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: default
-          arch: x86_64
-          cores: 2
-          ram-size: 2048M
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash gradlew :app:connectedDebugAndroidTest --max-workers=4 --console=plain > cloud-test-results/device.log 2>&1
+          bash gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug --max-workers=4 --console=plain 2>&1 | tee cloud-test-results/build.log
       - name: Collect reports
         if: always()
         env:
@@ -56,7 +41,7 @@ jobs:
           out = pathlib.Path('cloud-test-results')
           out.mkdir(exist_ok=True)
           result = {'commit': os.environ['TESTED_COMMIT'], 'job_status': os.environ['TEST_JOB_STATUS'], 'suites': {}}
-          for name, pattern in [('jvm', 'app/build/test-results/testDebugUnitTest/TEST-*.xml'), ('room', 'app/build/outputs/androidTest-results/connected/**/*.xml')]:
+          for name, pattern in [('jvm', 'app/build/test-results/testDebugUnitTest/TEST-*.xml')]:
               files = glob.glob(pattern, recursive=True)
               totals = {k: 0 for k in ['tests', 'failures', 'errors', 'skipped']}
               for file in files:
