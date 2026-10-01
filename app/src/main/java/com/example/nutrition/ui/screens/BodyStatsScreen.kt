@@ -28,8 +28,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,21 +70,24 @@ fun BodyStatsScreen(
         factory = BodyStatsViewModel.Factory(NutritionApp.instance.repository)
     )
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
 
     // 页面状态（单一 UiState）
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.initialize()
     }
 
     // 一次性事件（Toast）
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is UIEvent.ShowToast ->
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.events.collect { event ->
+                when (event) {
+                    is UIEvent.ShowToast ->
+                        Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -98,6 +104,7 @@ fun BodyStatsScreen(
                 .padding(16.dp)
         ) {
             uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
+            uiState.dateError?.let { message -> DataLoadError(message) { viewModel.selectDate(uiState.selectedDate) } }
             // 图表
             if (uiState.records.size >= 2) {
                 Card(

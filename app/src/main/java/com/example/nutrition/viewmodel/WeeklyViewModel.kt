@@ -11,7 +11,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -104,63 +105,62 @@ class WeeklyViewModel(
             val weekRange = DateUtils.formatWeekRange(monday)
 
             // 读取目标配置
-            val targets = repository.getTargets().first()
-                ?: NutrientConstants.getDefaultTargets()
+            combine(repository.getTargets(), repository.getAllRecords()) { targets, records ->
+                (targets ?: NutrientConstants.getDefaultTargets()) to records
+            }.collect { (targets, allRecords) ->
+                val weekSummary = Calculator.calcWeekSummary(allRecords, weekDates, targets)
 
-            // 读取全部记录并计算周报摘要
-            val allRecords = repository.getAllRecords().first()
-            val weekSummary = Calculator.calcWeekSummary(allRecords, weekDates, targets)
-
-            _uiState.update {
-                it.copy(
-                    dataError = null,
-                    weekRange = weekRange,
-                    targetCalories = targets.calories,
-                    hasData = weekSummary.avgCalories > 0 ||
-                        weekSummary.dailyData.any { day -> day.calories > 0 },
-                    // 热量折线图数据
-                    caloriePoints = weekDates.mapIndexed { index, dateStr ->
-                        val day = weekSummary.dailyData[index]
-                        CaloriePoint(
-                            label = dateStr.substring(5), // MM-dd
-                            calories = day.calories,
-                            dayOfWeek = DAY_NAMES[index]
-                        )
-                    },
-                    // 营养素柱状图数据
-                    nutrientBars = weekDates.mapIndexed { index, dateStr ->
-                        val day = weekSummary.dailyData[index]
-                        NutrientBar(
-                            label = dateStr.substring(5),
-                            protein = day.protein,
-                            fat = day.fat,
-                            carbs = day.carbs
-                        )
-                    },
-                    // 摘要四宫格
-                    summary = SummaryGrid(
-                        avgCalories = weekSummary.avgCalories,
-                        avgProtein = weekSummary.avgProtein,
-                        achievementDays = weekSummary.achievementDays,
-                        totalGap = weekSummary.totalGap
-                    ),
-                    // 营养素达标率
-                    nutrientRates = weekSummary.nutrientRates.map { rate ->
-                        NutrientRateRow(name = rate.name, rate = rate.rate)
-                    },
-                    // 微量营养素表格
-                    microTable = weekSummary.microTable.map { row ->
-                        MicroRow(
-                            name = row.name,
-                            unit = row.unit,
-                            dailyAvg = row.dailyAvg,
-                            target = row.target,
-                            rate = row.rate
-                        )
-                    },
-                    // 周报文本
-                    reportText = Calculator.generateWeekReportText(weekSummary, weekRange)
-                )
+                _uiState.update {
+                    it.copy(
+                        dataError = null,
+                        weekRange = weekRange,
+                        targetCalories = targets.calories,
+                        hasData = weekSummary.avgCalories > 0 ||
+                            weekSummary.dailyData.any { day -> day.calories > 0 },
+                        // 热量折线图数据
+                        caloriePoints = weekDates.mapIndexed { index, dateStr ->
+                            val day = weekSummary.dailyData[index]
+                            CaloriePoint(
+                                label = dateStr.substring(5), // MM-dd
+                                calories = day.calories,
+                                dayOfWeek = DAY_NAMES[index]
+                            )
+                        },
+                        // 营养素柱状图数据
+                        nutrientBars = weekDates.mapIndexed { index, dateStr ->
+                            val day = weekSummary.dailyData[index]
+                            NutrientBar(
+                                label = dateStr.substring(5),
+                                protein = day.protein,
+                                fat = day.fat,
+                                carbs = day.carbs
+                            )
+                        },
+                        // 摘要四宫格
+                        summary = SummaryGrid(
+                            avgCalories = weekSummary.avgCalories,
+                            avgProtein = weekSummary.avgProtein,
+                            achievementDays = weekSummary.achievementDays,
+                            totalGap = weekSummary.totalGap
+                        ),
+                        // 营养素达标率
+                        nutrientRates = weekSummary.nutrientRates.map { rate ->
+                            NutrientRateRow(name = rate.name, rate = rate.rate)
+                        },
+                        // 微量营养素表格
+                        microTable = weekSummary.microTable.map { row ->
+                            MicroRow(
+                                name = row.name,
+                                unit = row.unit,
+                                dailyAvg = row.dailyAvg,
+                                target = row.target,
+                                rate = row.rate
+                            )
+                        },
+                        // 周报文本
+                        reportText = Calculator.generateWeekReportText(weekSummary, weekRange)
+                    )
+                }
             }
         }
     }

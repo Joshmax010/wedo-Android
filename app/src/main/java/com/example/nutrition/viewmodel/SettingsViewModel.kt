@@ -18,6 +18,7 @@ import com.example.nutrition.domain.usecase.BackupManager
 import com.example.nutrition.domain.usecase.MetabolismCalculator
 import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.components.NutrientConstantItem
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,48 +109,42 @@ class SettingsViewModel(
 
     // 当前是否由自动计算产生（用于保存时标记）
     private var isAutoCalculatedFlag: Boolean = false
+    private var targetsLoaded = false
+    private var targetsJob: Job? = null
+    private var formRevision = 0L
 
     // ==================== 初始化 ====================
 
     fun initialize() {
-        loadTargets()
+        if (!targetsLoaded && targetsJob?.isActive != true) loadTargets()
         loadStorageStatus()
     }
 
     // ==================== 目标值加载 ====================
 
     fun loadTargets() {
-        viewModelScope.launchWithErrorFeedback("读取目标配置失败，请重试", { message -> _uiState.update { it.copy(targetsError = message) } }) {
-            val targets = repository.getTargets().first()
-                ?: NutrientConstants.getDefaultTargets()
-
+        targetsJob?.cancel()
+        val revision = formRevision
+        targetsJob = viewModelScope.launchWithErrorFeedback("读取目标配置失败，请重试", { message ->
+            _uiState.update { it.copy(targetsError = message) }
+        }) {
+            val targets = repository.getTargets().first() ?: NutrientConstants.getDefaultTargets()
+            targetsLoaded = true
+            _uiState.update { it.copy(targetsError = null) }
+            if (revision != formRevision) return@launchWithErrorFeedback
+            val profile = targets.bodyProfile
             _uiState.update { state ->
                 state.copy(
-                    targetsError = null,
                     calories = UnitConverter.formatForInput(targets.calories),
                     protein = UnitConverter.formatForInput(targets.protein),
                     fat = UnitConverter.formatForInput(targets.fat),
                     carbs = UnitConverter.formatForInput(targets.carbs),
                     micronutrients = targets.micronutrients.map { mn ->
-                        MicroTargetRow(
-                            key = mn.key,
-                            name = mn.name,
-                            unit = mn.unit,
-                            target = UnitConverter.formatForInput(mn.target)
-                        )
-                    }
-                )
-            }
-
-            // 加载身体档案
-            val profile = targets.bodyProfile
-            _uiState.update {
-                it.copy(
-                    gender = profile?.gender,
-                    age = profile?.age?.toString() ?: "",
+                        MicroTargetRow(mn.key, mn.name, mn.unit, UnitConverter.formatForInput(mn.target))
+                    },
+                    gender = profile?.gender, age = profile?.age?.toString() ?: "",
                     height = profile?.heightCm?.toString() ?: "",
-                    weight = profile?.weightKg?.toString() ?: "",
-                    activityLevel = profile?.activityLevel
+                    weight = profile?.weightKg?.toString() ?: "", activityLevel = profile?.activityLevel
                 )
             }
             isAutoCalculatedFlag = targets.isAutoCalculated
@@ -176,16 +171,41 @@ class SettingsViewModel(
 
     // ==================== 表单输入 ====================
 
-    fun onCaloriesInput(value: String) { _uiState.update { it.copy(calories = value) } }
-    fun onProteinInput(value: String) { _uiState.update { it.copy(protein = value) } }
-    fun onFatInput(value: String) { _uiState.update { it.copy(fat = value) } }
-    fun onCarbsInput(value: String) { _uiState.update { it.copy(carbs = value) } }
+    fun onCaloriesInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(calories = value) }
+    }
+    fun onProteinInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(protein = value) }
+    }
+    fun onFatInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(fat = value) }
+    }
+    fun onCarbsInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(carbs = value) }
+    }
 
-    fun onGenderInput(value: Gender) { _uiState.update { it.copy(gender = value) } }
-    fun onAgeInput(value: String) { _uiState.update { it.copy(age = value) } }
-    fun onHeightInput(value: String) { _uiState.update { it.copy(height = value) } }
-    fun onWeightInput(value: String) { _uiState.update { it.copy(weight = value) } }
+    fun onGenderInput(value: Gender) {
+        formRevision++
+        _uiState.update { it.copy(gender = value) }
+    }
+    fun onAgeInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(age = value) }
+    }
+    fun onHeightInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(height = value) }
+    }
+    fun onWeightInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(weight = value) }
+    }
     fun onActivityLevelInput(value: ActivityLevel) {
+        formRevision++
         _uiState.update { it.copy(activityLevel = value) }
     }
 
@@ -221,6 +241,7 @@ class SettingsViewModel(
      * 将计算出的推荐目标填充到表单
      */
     fun applyCalculatedTargets() {
+        formRevision++
         val result = _uiState.value.calcResult ?: return
         val targets = result.targets
         isAutoCalculatedFlag = true
@@ -276,6 +297,7 @@ class SettingsViewModel(
     }
 
     fun addMicronutrient(item: NutrientConstantItem) {
+        formRevision++
         _uiState.update { state ->
             if (state.micronutrients.any { it.key == item.key }) return@update state
             state.copy(
@@ -291,6 +313,7 @@ class SettingsViewModel(
     }
 
     fun onMicroTargetInput(index: Int, value: String) {
+        formRevision++
         _uiState.update { state ->
             if (index !in state.micronutrients.indices) return@update state
             val list = state.micronutrients.toMutableList()
@@ -300,6 +323,7 @@ class SettingsViewModel(
     }
 
     fun deleteMicronutrient(index: Int) {
+        formRevision++
         _uiState.update { state ->
             if (index !in state.micronutrients.indices) return@update state
             state.copy(micronutrients = state.micronutrients.filterIndexed { i, _ -> i != index })
@@ -309,6 +333,10 @@ class SettingsViewModel(
     // ==================== 保存目标 ====================
 
     fun saveTargets() {
+        if (!targetsLoaded || targetsJob?.isActive == true || _uiState.value.targetsError != null) {
+            sendEvent(UIEvent.ShowToast("请先完成目标配置的读取，失败时点击重试"))
+            return
+        }
         val state = _uiState.value
 
         // 校验宏量

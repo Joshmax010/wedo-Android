@@ -32,8 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -46,13 +45,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.MealKey
@@ -89,19 +85,7 @@ fun HomeScreen(
     onNavigateToRecord: (MealKey?) -> Unit = {}
 ) {
     // 页面状态（单一 UiState）
-    val uiState by viewModel.uiState.collectAsState()
-
-    // 页面 resume 时刷新数据
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.loadData()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // 首次加载
     LaunchedEffect(Unit) {

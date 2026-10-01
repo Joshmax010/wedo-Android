@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -110,6 +111,10 @@ class RecordViewModel(
 
     // 编辑中的记录创建时间（不参与渲染，不进 UiState）
     private var editingCreatedAt: String? = null
+    private var initialized = false
+    private var initialMealArgument: MealKey? = null
+    private var explicitMealSelection = false
+    private var formRevision = 0L
 
     private var recordsJob: Job? = null
     private var templatesJob: Job? = null
@@ -156,11 +161,21 @@ class RecordViewModel(
     // ==================== 初始化 ====================
 
     /**
-     * 接收从首页传来的选中餐次（可选），重置表单
+     * 接收从首页传来的选中餐次（可选），保留恢复页面时的未保存表单
      */
     fun initWithMeal(mealKey: MealKey?) {
-        resetForm()
+        if (initialized && initialMealArgument == mealKey) return
+        initialMealArgument = mealKey
+        if (initialized && hasPendingForm()) return
+        initialized = true
+        explicitMealSelection = mealKey != null
         _uiState.update { it.copy(currentMeal = mealKey ?: MealKey.fromCurrentTime()) }
+    }
+
+    private fun hasPendingForm(): Boolean = _uiState.value.run {
+        editingId != null || pendingTemplate != null || foodName.isNotBlank() || calories.isNotBlank() ||
+            protein.isNotBlank() || fat.isNotBlank() || carbs.isNotBlank() ||
+            formMicronutrients.isNotEmpty() || weight != "100"
     }
 
     // ==================== 日期跳转 ====================
@@ -178,12 +193,15 @@ class RecordViewModel(
      * 仅根据当前时间刷新默认餐次（不重置表单），用于页面 resume 时
      */
     fun refreshMealByTime() {
+        if (explicitMealSelection || hasPendingForm()) return
         _uiState.update { it.copy(currentMeal = MealKey.fromCurrentTime()) }
     }
 
     // ==================== 餐次切换 ====================
 
     fun switchMeal(meal: MealKey) {
+        explicitMealSelection = true
+        if (_uiState.value.currentMeal == meal) return
         resetForm()
         _uiState.update { it.copy(currentMeal = meal) }
     }
@@ -204,10 +222,12 @@ class RecordViewModel(
     // ==================== 表单输入 ====================
 
     fun onNameInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(foodName = value) }
     }
 
     fun onCaloriesInput(value: String) {
+        formRevision++
         _uiState.update { state ->
             state.copy(
                 calories = value,
@@ -217,6 +237,7 @@ class RecordViewModel(
     }
 
     fun onKiloJoulesInput(value: String) {
+        formRevision++
         _uiState.update { state ->
             state.copy(
                 kiloJoules = value,
@@ -226,18 +247,22 @@ class RecordViewModel(
     }
 
     fun onProteinInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(protein = value).withBaseFromActuals() }
     }
 
     fun onFatInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(fat = value).withBaseFromActuals() }
     }
 
     fun onCarbsInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(carbs = value).withBaseFromActuals() }
     }
 
     fun onWeightInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(weight = value).withActualsFromBase() }
     }
 
@@ -300,6 +325,7 @@ class RecordViewModel(
     }
 
     fun addMicronutrient(item: NutrientConstantItem) {
+        formRevision++
         _uiState.update { state ->
             // 防止重复添加
             if (state.formMicronutrients.any { it.key == item.key }) return@update state
@@ -313,6 +339,7 @@ class RecordViewModel(
     }
 
     fun onMicroValueInput(index: Int, value: String) {
+        formRevision++
         _uiState.update { state ->
             if (index !in state.formMicronutrients.indices) return@update state
             val micros = state.formMicronutrients.toMutableList()
@@ -322,6 +349,7 @@ class RecordViewModel(
     }
 
     fun deleteMicronutrient(index: Int) {
+        formRevision++
         _uiState.update { state ->
             if (index !in state.formMicronutrients.indices) return@update state
             val key = state.formMicronutrients[index].key
@@ -397,6 +425,7 @@ class RecordViewModel(
     // ==================== 保存记录 ====================
 
     fun saveRecord() {
+        val revision = formRevision
         val state = _uiState.value
         val error = MealFormValidator.validate(
             calories = state.calories,
@@ -452,6 +481,11 @@ class RecordViewModel(
                 return@launchWithErrorFeedback
             }
 
+            if (revision != formRevision) {
+                sendEvent(UIEvent.ShowToast("已保存"))
+                return@launchWithErrorFeedback
+            }
+
             // 新增记录且食物名未存在模板中时，询问是否保存为模板
             if (!isEdit && shouldPromptSaveAsTemplate(record.name)) {
                 _uiState.update {
@@ -468,6 +502,7 @@ class RecordViewModel(
     // ==================== 编辑记录 ====================
 
     fun editRecord(recordId: String) {
+        formRevision++
         val record = _uiState.value.recordList.find { it.id == recordId } ?: return
 
         editingCreatedAt = record.createdAt
@@ -547,6 +582,7 @@ class RecordViewModel(
     // ==================== 模板自动补全 ====================
 
     fun applyTemplate(template: FoodTemplate) {
+        formRevision++
         _uiState.update { state ->
             state.copy(
                 foodName = template.name,
@@ -576,6 +612,7 @@ class RecordViewModel(
     // ==================== 重置表单 ====================
 
     private fun resetForm() {
+        formRevision++
         editingCreatedAt = null
         _uiState.update { it.copyEmptyForm() }
     }

@@ -37,6 +37,7 @@ class BodyStatsViewModel(
     data class UiState(
         val records: List<BodyRecord> = emptyList(),
         val dataError: String? = null,
+        val dateError: String? = null,
         val selectedDate: String = DateUtils.today(),
         val showDatePicker: Boolean = false,
         val weight: String = "",
@@ -58,6 +59,8 @@ class BodyStatsViewModel(
     }
 
     private var dataJob: Job? = null
+    private var dateJob: Job? = null
+    private var formRevision = 0L
 
     init { initialize() }
 
@@ -74,10 +77,22 @@ class BodyStatsViewModel(
 
     // ==================== 表单输入 ====================
 
-    fun onWeightInput(value: String) { _uiState.update { it.copy(weight = value) } }
-    fun onBodyFatInput(value: String) { _uiState.update { it.copy(bodyFat = value) } }
-    fun onMuscleInput(value: String) { _uiState.update { it.copy(muscle = value) } }
-    fun onNoteInput(value: String) { _uiState.update { it.copy(note = value) } }
+    fun onWeightInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(weight = value) }
+    }
+    fun onBodyFatInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(bodyFat = value) }
+    }
+    fun onMuscleInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(muscle = value) }
+    }
+    fun onNoteInput(value: String) {
+        formRevision++
+        _uiState.update { it.copy(note = value) }
+    }
 
     // ==================== 日期选择 ====================
 
@@ -86,17 +101,29 @@ class BodyStatsViewModel(
     }
 
     fun selectDate(dateStr: String) {
-        _uiState.update { it.copy(selectedDate = dateStr, showDatePicker = false) }
-        // 尝试回填已有记录
-        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
+        dateJob?.cancel()
+        val changedDate = _uiState.value.selectedDate != dateStr
+        _uiState.update { state ->
+            state.copy(
+                selectedDate = dateStr, showDatePicker = false,
+                weight = if (changedDate) "" else state.weight,
+                bodyFat = if (changedDate) "" else state.bodyFat,
+                muscle = if (changedDate) "" else state.muscle,
+                note = if (changedDate) "" else state.note
+            )
+        }
+        val revision = formRevision
+        dateJob = viewModelScope.launchWithErrorFeedback("读取该日身体记录失败，请重试", { message ->
+            _uiState.update { it.copy(dateError = message) }
+        }) {
             val existing = repository.getBodyRecord(dateStr).first()
+            _uiState.update { it.copy(dateError = null) }
+            if (_uiState.value.selectedDate != dateStr || revision != formRevision) return@launchWithErrorFeedback
             _uiState.update {
                 it.copy(
                     weight = existing?.let { r -> UnitConverter.formatForInput(r.weightKg) } ?: "",
-                    bodyFat = existing?.bodyFatPercent
-                        ?.let { v -> UnitConverter.formatForInput(v) } ?: "",
-                    muscle = existing?.muscleKg
-                        ?.let { v -> UnitConverter.formatForInput(v) } ?: "",
+                    bodyFat = existing?.bodyFatPercent?.let { v -> UnitConverter.formatForInput(v) } ?: "",
+                    muscle = existing?.muscleKg?.let { v -> UnitConverter.formatForInput(v) } ?: "",
                     note = existing?.note ?: ""
                 )
             }
@@ -106,6 +133,10 @@ class BodyStatsViewModel(
     // ==================== 保存记录 ====================
 
     fun saveRecord() {
+        if (dateJob?.isActive == true || _uiState.value.dateError != null) {
+            sendEvent(UIEvent.ShowToast("请先完成该日记录的读取，失败时点击重试"))
+            return
+        }
         val state = _uiState.value
         val error = BodyStatsValidator.validate(
             weight = state.weight,

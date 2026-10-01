@@ -110,7 +110,7 @@ Room Database / DataStore
 
 1. **数据模型与 Entity 分离**：`NutritionTargets` 等是纯 Kotlin data class；Room Entity 将复杂对象序列化为 JSON 字符串存储，保持领域模型简洁。
 2. **响应式数据层**：`LocalStorageRepository` 的读方法返回 `Flow`，ViewModel 在 `viewModelScope` 中收集并驱动 Compose 状态；数据变更时 UI 自动刷新，无需手动调用 `loadData()`/`loadTemplates()`。
-3. **单一 UiState（MVI 风格）**：每个 ViewModel 用一个不可变 `UiState` data class 承载全部页面状态，Screen 端 `val uiState by viewModel.uiState.collectAsState()` 读取，杜绝零散 `mutableStateOf` 导致的状态碎片化。
+3. **单一 UiState（MVI 风格）**：每个 ViewModel 用一个不可变 `UiState` data class 承载全部页面状态，Screen 端 `val uiState by viewModel.uiState.collectAsStateWithLifecycle()` 读取，杜绝零散 `mutableStateOf` 导致的状态碎片化。
 4. **一次性事件经 Channel**：Toast 等一次性提示通过 `Channel<UIEvent>(BUFFERED)` + `receiveAsFlow()` 发送，避免用 `mutableStateOf` 承载导致的重复触发/消费竞态。
 5. **写操作返回 `Resource<T>`**：仓库所有写方法返回 `Resource.Success`/`Resource.Error(message)`，ViewModel 直接将 `message` 展示给用户，错误反馈统一且类型安全。
    备份导入的 `bulkSet` 将五张表的写入与现有回读校验放在同一个 Room 事务中；任何写入或校验失败都回滚本次导入，协程取消继续向上传播。
@@ -358,6 +358,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 页面状态与提示按生命周期收集；恢复录入页、设置页时保留未保存表单，异步读取/保存不覆盖较新的输入，身体记录取消旧日期读取，周报持续观察记录和目标变化。新增 8 个表单与异步状态单元用例（待本地执行）。 | `ui/screens/`、相关 ViewModel 与单元测试 |
 | 待发布 | 基于 1.4.3 | 预设模板按仓库生命周期初始化一次，互斥与事务保护并发初始化、失败可重试；录入页补全复用已有模板状态，不再重复订阅仓库。新增 3 个初始化设备用例与 1 个订阅单元用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`RecordViewModel.kt`、相关测试 |
 | 待发布 | 基于 1.4.3 | 本地读取或 JSON 解码失败不再伪装为空数据；页面保留最后成功数据并提供重试，备份读取失败不生成部分备份，仓库写操作和页面任务正确传播取消。新增 2 个读取保护设备用例和 2 个备份单元用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`BackupManager.kt`、`viewmodel/`、`ui/screens/`、`DataLoadError.kt`、相关测试 |
 | 待发布 | 基于 1.4.3 | 饮食记录新增、编辑和删除采用事务内读改写，避免同一天并发操作覆盖彼此；保留记录 ID 与创建时间，新增 3 个并发 Room 回归用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`RoomLocalStorageRepositoryTest.kt` |
