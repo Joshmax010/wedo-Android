@@ -103,6 +103,7 @@ fun BodyStatsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
                 .padding(16.dp)
         ) {
             com.example.nutrition.ui.navigation.PageTitle("身体记录", "记录身体变化")
