@@ -65,7 +65,11 @@ interface LocalStorageRepository {
 
     // ==================== 批量操作 ====================
 
-    /** 批量写入数据（用于导入恢复，含回读校验） */
+    /**
+     * 在单个事务中批量写入数据（用于导入恢复，含回读校验）。
+     * 写入或校验失败时回滚全部变更；null 字段保留现有数据。
+     * 模板/身体记录传空列表时清空对应数据，其中预设模板保留。
+     */
     suspend fun bulkSet(
         targets: NutritionTargets? = null,
         records: Map<String, DayRecords>? = null,

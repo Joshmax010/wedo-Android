@@ -5,8 +5,15 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.nutrition.data.local.db.NutritionDatabase
+import com.example.nutrition.data.local.entity.BodyRecordEntity
+import com.example.nutrition.data.local.entity.DayRecordEntity
+import com.example.nutrition.data.local.entity.FoodTemplateEntity
+import com.example.nutrition.data.local.entity.MetaEntity
+import com.example.nutrition.data.local.entity.TargetEntity
 import com.example.nutrition.domain.model.AppMeta
+import com.example.nutrition.domain.model.BodyRecord
 import com.example.nutrition.domain.model.DayRecords
+import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.MealKey
 import com.example.nutrition.domain.model.MealMicro
 import com.example.nutrition.domain.model.MealRecord
@@ -80,6 +87,46 @@ class RoomLocalStorageRepositoryTest {
         schemaVersion = 1,
         hasSeenGuide = false
     )
+
+    private data class DatabaseSnapshot(
+        val targets: TargetEntity?,
+        val records: List<DayRecordEntity>,
+        val meta: MetaEntity?,
+        val templates: List<FoodTemplateEntity>,
+        val bodyRecords: List<BodyRecordEntity>
+    )
+
+    // 直接比较五张表，避免读取模板的 Flow 时触发预设初始化。
+    private suspend fun snapshotDatabase() = DatabaseSnapshot(
+        targets = db.targetDao().get(),
+        records = db.recordDao().getAll(),
+        meta = db.metaDao().get(),
+        templates = db.foodTemplateDao().getAll(),
+        bodyRecords = db.bodyRecordDao().getAll()
+    )
+
+    private suspend fun seedImportData(): DatabaseSnapshot {
+        assertTrue(
+            repo.bulkSet(
+                targets = sampleTargets(),
+                records = mapOf(
+                    "2026-06-29" to DayRecords(
+                        dateStr = "2026-06-29", lunch = listOf(sampleRecord(name = "保留的记录"))
+                    ),
+                    "2026-06-30" to DayRecords(
+                        dateStr = "2026-06-30", breakfast = listOf(sampleRecord(name = "原记录"))
+                    )
+                ),
+                meta = sampleMeta(),
+                foodTemplates = listOf(
+                    FoodTemplate(id = "existing-preset", name = "已编辑预设", calories = 123.0, isPreset = true),
+                    FoodTemplate(id = "existing-custom", name = "原自定义模板", calories = 456.0)
+                ),
+                bodyRecords = listOf(BodyRecord(dateStr = "2026-06-30", weightKg = 70.0))
+            ) is Resource.Success
+        )
+        return snapshotDatabase()
+    }
 
     // ==================== 营养目标测试 ====================
 
@@ -306,6 +353,151 @@ class RoomLocalStorageRepositoryTest {
         assertNotNull(repo.getTargets().first())
         assertNull(repo.getMeta().first())
         assertTrue(repo.getAllRecords().first().isEmpty())
+    }
+
+    @Test
+    fun bulkSet_成功导入五张表_保留预设和未导入日期() = runTest {
+        val before = seedImportData()
+        val targets = sampleTargets().copy(calories = 2500.0)
+        val records = mapOf(
+            "2026-06-30" to DayRecords(
+                dateStr = "2026-06-30", dinner = listOf(sampleRecord(name = "替换记录"))
+            ),
+            "2026-07-01" to DayRecords(
+                dateStr = "2026-07-01", lunch = listOf(sampleRecord(name = "新增记录"))
+            )
+        )
+        val meta = sampleMeta().copy(hasSeenGuide = true)
+        val template = FoodTemplate(id = "imported-custom", name = "导入模板", calories = 300.0)
+        val bodyRecord = BodyRecord(dateStr = "2026-07-01", weightKg = 68.0)
+
+        assertTrue(
+            repo.bulkSet(
+                targets = targets, records = records, meta = meta,
+                foodTemplates = listOf(template), bodyRecords = listOf(bodyRecord)
+            ) is Resource.Success
+        )
+
+        assertEquals(targets, repo.getTargets().first())
+        assertEquals(meta, repo.getMeta().first())
+        val loadedRecords = repo.getAllRecords().first()
+        assertEquals(setOf("2026-06-29", "2026-06-30", "2026-07-01"), loadedRecords.keys)
+        records.forEach { (date, day) -> assertEquals(day, loadedRecords[date]) }
+        val after = snapshotDatabase()
+        assertEquals(
+            before.records.single { it.dateStr == "2026-06-29" },
+            after.records.single { it.dateStr == "2026-06-29" }
+        )
+        assertEquals(before.templates.filter { it.isPreset }, after.templates.filter { it.isPreset })
+        assertEquals(listOf(template.id), after.templates.filter { !it.isPreset }.map { it.id })
+        assertEquals(template.name, after.templates.single { !it.isPreset }.name)
+        assertEquals(listOf(bodyRecord), repo.getAllBodyRecords().first())
+    }
+
+    @Test
+    fun bulkSet_null字段保留已有数据() = runTest {
+        val before = seedImportData()
+        val targets = sampleTargets().copy(calories = 2500.0)
+
+        assertTrue(repo.bulkSet(targets = targets) is Resource.Success)
+
+        assertEquals(targets, repo.getTargets().first())
+        assertEquals(before, snapshotDatabase().copy(targets = before.targets))
+    }
+
+    @Test
+    fun bulkSet_空列表清空自定义模板和身体记录_保留预设() = runTest {
+        val before = seedImportData()
+
+        assertTrue(
+            repo.bulkSet(foodTemplates = emptyList(), bodyRecords = emptyList()) is Resource.Success
+        )
+
+        assertEquals(
+            before.copy(templates = before.templates.filter { it.isPreset }, bodyRecords = emptyList()),
+            snapshotDatabase()
+        )
+    }
+
+    @Test
+    fun bulkSet_最后一张表写入失败_回滚五张表的全部变更() = runTest {
+        val before = seedImportData()
+        // 在最后一个身体记录插入时制造真实 SQLite 写入失败。
+        // 前面的覆盖、删除以及第一条身体记录插入都必须一起回滚。
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER fail_body_import BEFORE INSERT ON body_records
+            WHEN NEW.dateStr = '2026-07-02'
+            BEGIN
+                SELECT RAISE(ABORT, 'Simulated import write failure');
+            END
+            """.trimIndent()
+        )
+
+        val result = repo.bulkSet(
+            targets = sampleTargets().copy(calories = 2500.0),
+            records = mapOf(
+                "2026-06-30" to DayRecords(
+                    dateStr = "2026-06-30", dinner = listOf(sampleRecord(name = "替换记录"))
+                ),
+                "2026-07-01" to DayRecords(
+                    dateStr = "2026-07-01", lunch = listOf(sampleRecord(name = "新增记录"))
+                )
+            ),
+            meta = sampleMeta().copy(hasSeenGuide = true),
+            foodTemplates = listOf(FoodTemplate(id = "imported-custom", name = "导入模板", calories = 300.0)),
+            bodyRecords = listOf(
+                BodyRecord(dateStr = "2026-07-01", weightKg = 68.0),
+                BodyRecord(dateStr = "2026-07-02", weightKg = 69.0)
+            )
+        )
+
+        assertEquals(Resource.Error("数据导入失败，请重试"), result)
+        assertEquals(before, snapshotDatabase())
+    }
+
+    @Test
+    fun bulkSet_目标回读校验失败_回滚已写入的目标() = runTest {
+        val before = seedImportData()
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER alter_imported_target AFTER INSERT ON targets
+            BEGIN
+                UPDATE targets SET calories = NEW.calories + 1 WHERE id = NEW.id;
+            END
+            """.trimIndent()
+        )
+
+        val result = repo.bulkSet(targets = sampleTargets().copy(calories = 2500.0))
+
+        assertEquals(Resource.Error("数据校验失败，请重试"), result)
+        assertEquals(before, snapshotDatabase())
+    }
+
+    @Test
+    fun bulkSet_元信息回读校验失败_回滚之前的目标和饮食记录() = runTest {
+        val before = seedImportData()
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER alter_imported_meta AFTER INSERT ON meta
+            BEGIN
+                UPDATE meta SET schemaVersion = NEW.schemaVersion + 1 WHERE id = NEW.id;
+            END
+            """.trimIndent()
+        )
+
+        val result = repo.bulkSet(
+            targets = sampleTargets().copy(calories = 2500.0),
+            records = mapOf(
+                "2026-06-30" to DayRecords(
+                    dateStr = "2026-06-30", dinner = listOf(sampleRecord(name = "替换记录"))
+                )
+            ),
+            meta = sampleMeta().copy(hasSeenGuide = true)
+        )
+
+        assertEquals(Resource.Error("数据校验失败，请重试"), result)
+        assertEquals(before, snapshotDatabase())
     }
 
     // ==================== 存储状态测试 ====================

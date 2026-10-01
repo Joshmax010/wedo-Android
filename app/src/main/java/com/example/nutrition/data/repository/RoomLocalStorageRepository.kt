@@ -1,5 +1,6 @@
 package com.example.nutrition.data.repository
 
+import androidx.room.withTransaction
 import com.example.nutrition.data.local.db.NutritionDatabase
 import com.example.nutrition.data.local.entity.BodyRecordEntity
 import com.example.nutrition.data.local.entity.DayRecordEntity
@@ -20,6 +21,7 @@ import com.example.nutrition.domain.model.NutritionTargets
 import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.model.StorageStatus
 import com.example.nutrition.domain.repository.LocalStorageRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
@@ -206,32 +208,42 @@ class RoomLocalStorageRepository(
         bodyRecords: List<BodyRecord>?
     ): Resource<Unit> {
         return try {
-            if (targets != null) {
-                targetDao.insert(targets.toEntity())
-                if (!verifyTargetWrite(targets)) return Resource.Error("数据校验失败，请重试")
-            }
-            if (records != null) {
-                for ((dateStr, dayData) in records) {
-                    recordDao.insert(dayData.toEntity(dateStr))
+            // 导入涉及多张表，写入与回读校验必须全部成功后再提交。
+            db.withTransaction {
+                if (targets != null) {
+                    targetDao.insert(targets.toEntity())
+                    if (!verifyTargetWrite(targets)) throw ImportVerificationException()
+                }
+                if (records != null) {
+                    for ((dateStr, dayData) in records) {
+                        recordDao.insert(dayData.toEntity(dateStr))
+                    }
+                }
+                if (meta != null) {
+                    metaDao.insert(meta.toEntity())
+                    if (!verifyMetaWrite(meta)) throw ImportVerificationException()
+                }
+                if (foodTemplates != null) {
+                    foodTemplateDao.deleteAllCustom()
+                    foodTemplates.forEach { foodTemplateDao.insert(it.toEntity()) }
+                }
+                if (bodyRecords != null) {
+                    bodyRecordDao.deleteAll()
+                    bodyRecords.forEach { bodyRecordDao.insert(it.toEntity()) }
                 }
             }
-            if (meta != null) {
-                metaDao.insert(meta.toEntity())
-                if (!verifyMetaWrite(meta)) return Resource.Error("数据校验失败，请重试")
-            }
-            if (foodTemplates != null) {
-                foodTemplateDao.deleteAllCustom()
-                foodTemplates.forEach { foodTemplateDao.insert(it.toEntity()) }
-            }
-            if (bodyRecords != null) {
-                bodyRecordDao.deleteAll()
-                bodyRecords.forEach { bodyRecordDao.insert(it.toEntity()) }
-            }
             Resource.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ImportVerificationException) {
+            Resource.Error("数据校验失败，请重试")
         } catch (e: Exception) {
             Resource.Error("数据导入失败，请重试")
         }
     }
+
+    // 校验失败必须抛出异常，让 withTransaction 回滚，不能在事务内正常返回 Error。
+    private class ImportVerificationException : Exception()
 
     // ==================== 存储状态 ====================
 

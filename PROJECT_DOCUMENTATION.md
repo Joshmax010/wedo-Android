@@ -113,6 +113,7 @@ Room Database / DataStore
 3. **单一 UiState（MVI 风格）**：每个 ViewModel 用一个不可变 `UiState` data class 承载全部页面状态，Screen 端 `val uiState by viewModel.uiState.collectAsState()` 读取，杜绝零散 `mutableStateOf` 导致的状态碎片化。
 4. **一次性事件经 Channel**：Toast 等一次性提示通过 `Channel<UIEvent>(BUFFERED)` + `receiveAsFlow()` 发送，避免用 `mutableStateOf` 承载导致的重复触发/消费竞态。
 5. **写操作返回 `Resource<T>`**：仓库所有写方法返回 `Resource.Success`/`Resource.Error(message)`，ViewModel 直接将 `message` 展示给用户，错误反馈统一且类型安全。
+   备份导入的 `bulkSet` 将五张表的写入与现有回读校验放在同一个 Room 事务中；任何写入或校验失败都回滚本次导入，协程取消继续向上传播。
 6. **业务逻辑下沉 UseCase**：单位换算（`UnitConverter`）、表单校验（`MealFormValidator`/`BodyStatsValidator`）、模板换算（`FoodTemplateMapper`）等纯逻辑放在 domain/usecase，ViewModel 只做编排。
 7. **类型安全导航**：使用 navigation-compose 2.8+ 的 @Serializable 路由对象（`AppRoutes.kt`），页面间传参编译期可查；`MainScreen` 底栏选中态用 `NavDestination.hasRoute<T>()` 判断。
 8. **单例 Repository**：`NutritionApp` 中以 `lazy` 方式持有 Repository 单例，通过 `NutritionApp.instance` 在 ViewModel 中获取。
@@ -169,6 +170,9 @@ Room Database / DataStore
 注意：
 - 旧版备份（schemaVersion 1/2）仍可导入，`BackupManager` 会对缺失字段做容错。
 - schemaVersion 3 备份会额外包含 `foodTemplates`（仅自定义模板）和 `bodyRecords` 字段。
+- 导入在一个数据库事务中提交目标、饮食记录、元信息、自定义模板和身体记录。写入或现有回读校验失败时，保留导入前的数据。
+- 原有导入规则保留：饮食记录按备份中的日期写入，未涉及的日期保留；旧备份缺少模板/身体记录字段时保留这些数据，明确传入空列表时清空自定义模板/身体记录，预设模板保留。
+- 这是预防性的底层可靠性优化，目前没有用户反馈导入故障。备份 JSON 格式、数据库结构和页面交互均未调整。
 
 ---
 
@@ -326,6 +330,15 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
 - 位于 `app/src/androidTest/java/...`。
 - `RoomLocalStorageRepositoryTest.kt` 覆盖所有 Repository 写操作，断言 `Resource.Success` / `Resource.Error`。
 - 需要连接真机或模拟器后通过 `:app:connectedDebugAndroidTest` 执行。
+- 导入事务新增 6 个回归用例：五表正常导入、`null` 字段保留原数据、空列表清空规则、末尾写入失败回滚、目标校验失败回滚、元信息校验失败回滚。失败用例仅在测试的内存数据库中创建 SQLite 触发器，不影响应用数据库。
+
+Windows 本地连接调试设备后，可单独运行仓库集成测试：
+
+```powershell
+.\gradlew.bat :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.example.nutrition.data.repository.RoomLocalStorageRepositoryTest"
+```
+
+上述新增用例待本地 Android 环境执行；云端仅进行源码与差异检查，不搭建 Android 构建或设备环境。原有单元测试也应在本地按 §7.3 回归。
 
 ---
 
@@ -345,6 +358,7 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 预防性底层优化：备份导入的五表写入与现有回读校验纳入同一 Room 事务，写入或校验失败时全部回滚，取消继续传播；保留原有导入规则与错误提示。新增 6 个 Room 集成回归用例（待本地执行）。目前无用户导入故障反馈，未调整应用版本、数据库结构或备份格式。 | `data/repository/RoomLocalStorageRepository.kt`、`domain/repository/LocalStorageRepository.kt`、`androidTest/.../RoomLocalStorageRepositoryTest.kt` |
 | 2026-09-04 | 1.4.3 | README 正式化与版权署名修正：① README 重写为开源项目标准结构——徽章行（Release/平台/Kotlin/Compose/无网络/MIT）、下载安装表、校验信息折叠块、功能按「记录/分析/数据」分组、技术栈表补测试行、新增项目结构树（71 个 Kotlin 源文件）、构建与签名配置说明（折叠）、已知限制指引 §7.3、维护状态章节，中英双语镜像；② `LICENSE` 版权行由系统用户名 `sunyu` 修正为 GitHub 身份 `Joshmax010`；③ Release v1.4.3 已发布至 GitHub（资产 `wedo-fitness-v1.4.3.apk`，2,338,132 字节），tag 指向 `6a69987`，下载回环校验哈希与签名均一致。 | `README.md`, `LICENSE` |
 | 2026-09-04 | 1.4.3 | 品牌名统一与发布准备：① 产品名全面统一为「健身wedo / wedo Fitness」（与微信小程序及 `strings.xml` 中 `app_name` 一致），文档旧名「营养记录器」全部替换；② 新增发布签名配置——`keystore.properties` 读取本地密钥（已被 .gitignore 排除，文件缺失时自动退化为 unsigned 构建），release 构建产出正式签名 APK（v2/v3），并附 SHA-256 校验值；③ README 改为中文优先、双语结构，标题与英文段落均同步新品牌名。 | `README.md`, `PROJECT_DOCUMENTATION.md`, `app/build.gradle.kts`, `.gitignore`, `keystore.properties`(*) |
 | 2026-09-04 | 1.4.3 | 扫尾收尾（终版）：① 移除未使用的 Vico 图表依赖（源码零引用，proguard 无残留规则）；② Gradle Wrapper 完整入库（`gradlew`/`gradlew.bat`/`gradle-wrapper.jar`），新机器开箱即用；③ 验证：debug 三套编译（main/unit/androidTest）全绿、release（R8 混淆）构建成功产出 unsigned APK（约 2.3MB）与 mapping.txt、`lintVitalRelease` 无致命问题；④ 版本号 `versionCode` 4→5、`versionName` 1.4.2→1.4.3，`APP_VERSION` 联动；⑤ 删除文档中全部待办清单——本项目进入终版维护状态，剩余方向（OCR、深色模式、小程序二期对齐等）见 `../MULTIPLATFORM_PROGRESS.md` 历史评估。 | `app/build.gradle.kts`, `domain/constants/NutrientConstants.kt`, `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, `PROJECT_DOCUMENTATION.md`, `../MULTIPLATFORM_PROGRESS.md` |
