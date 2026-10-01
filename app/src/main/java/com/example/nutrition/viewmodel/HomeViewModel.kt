@@ -15,6 +15,7 @@ import com.example.nutrition.domain.usecase.MetabolismCalculator
 import com.example.nutrition.ui.theme.CarbsColor
 import com.example.nutrition.ui.theme.FatColor
 import com.example.nutrition.ui.theme.ProteinColor
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,39 +80,29 @@ class HomeViewModel(
         val showGuide: Boolean = false,
         // 二期：代谢计算相关展示
         val tdee: Double? = null,
-        val isAutoCalculated: Boolean = false
+        val isAutoCalculated: Boolean = false,
+        val dataError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init {
-        // 日期或仓库数据变化时自动重算
-        viewModelScope.launch {
-            _uiState
-                .map { it.currentDate }
-                .distinctUntilChanged()
-                .flatMapLatest { date ->
-                    combine(
-                        repository.getTargets(),
-                        repository.getDayRecords(date)
-                    ) { targets, dayData ->
-                        date to (targets to dayData)
-                    }
-                }
-                .collect { (date, pair) ->
-                    applyHomeData(date, pair.first, pair.second)
-                }
-        }
-    }
+    private var dataJob: Job? = null
 
-    // ==================== 数据加载 ====================
+    init { loadData() }
 
-    /**
-     * 兼容入口：数据已由 Flow 自动驱动，无需手动加载
-     */
     fun loadData() {
-        // no-op
+        if (dataJob?.isActive == true) return
+        dataJob = viewModelScope.launchWithErrorFeedback("读取首页数据失败，请重试", {
+            _uiState.update { state -> state.copy(dataError = it) }
+        }) {
+            _uiState.map { it.currentDate }.distinctUntilChanged()
+                .flatMapLatest { date ->
+                    combine(repository.getTargets(), repository.getDayRecords(date)) { targets, day ->
+                        date to (targets to day)
+                    }
+                }.collect { (date, pair) -> applyHomeData(date, pair.first, pair.second) }
+        }
     }
 
     private suspend fun applyHomeData(
@@ -126,6 +117,7 @@ class HomeViewModel(
 
         _uiState.update { state ->
             state.copy(
+                dataError = null,
                 isToday = DateUtils.isToday(dateStr),
                 hasData = dayAgg.calories > 0,
                 // 二期：代谢计算展示
@@ -181,7 +173,7 @@ class HomeViewModel(
      * 检测首次使用并显示引导
      */
     fun checkFirstUse() {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(dataError = message) } }) {
             val meta = repository.getMeta().first()
             if (meta == null || !meta.hasSeenGuide) {
                 _uiState.update { it.copy(showGuide = true) }
@@ -194,9 +186,12 @@ class HomeViewModel(
      */
     fun onGuideFinish() {
         _uiState.update { it.copy(showGuide = false) }
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(dataError = message) } }) {
             val meta = repository.getMeta().first() ?: NutrientConstants.getDefaultMeta()
-            repository.setMeta(meta.copy(hasSeenGuide = true))
+            val result = repository.setMeta(meta.copy(hasSeenGuide = true))
+            if (result is com.example.nutrition.domain.model.Resource.Error) {
+                _uiState.update { it.copy(dataError = result.message) }
+            }
         }
     }
 

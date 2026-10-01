@@ -20,6 +20,7 @@ import com.example.nutrition.domain.model.MealRecord
 import com.example.nutrition.domain.model.MicronutrientTarget
 import com.example.nutrition.domain.model.NutritionTargets
 import com.example.nutrition.domain.model.Resource
+import kotlinx.serialization.SerializationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -562,6 +563,25 @@ class RoomLocalStorageRepositoryTest {
         assertTrue(capacity.ok)
         assertFalse(capacity.warn)
         assertTrue(capacity.message.isEmpty())
+    }
+
+    @Test
+    fun getDayRecords_JSON损坏时报告读取失败_不返回空记录() = runTest {
+        db.recordDao().insert(DayRecordEntity(dateStr = "2026-06-30", breakfastJson = "invalid-json"))
+        try {
+            repo.getDayRecords("2026-06-30").first()
+            fail("损坏的 JSON 应报告读取失败")
+        } catch (_: SerializationException) {
+            // Expected; an absent row is already tested separately as an empty day.
+        }
+    }
+
+    @Test
+    fun addRecord_读取损坏数据失败时不覆盖原始行() = runTest {
+        val damaged = DayRecordEntity(dateStr = "2026-06-30", breakfastJson = "invalid-json")
+        db.recordDao().insert(damaged)
+        assertTrue(repo.addRecord("2026-06-30", MealKey.LUNCH, sampleRecord()) is Resource.Error)
+        assertEquals(damaged, db.recordDao().getByDate("2026-06-30"))
     }
 
     // ==================== 边界场景测试 ====================

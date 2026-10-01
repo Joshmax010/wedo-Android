@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -92,6 +93,7 @@ fun FoodTemplateScreen(
     Scaffold(
         topBar = {
             Column {
+                uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
                 SearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = viewModel::onSearchQueryChange
@@ -132,7 +134,7 @@ fun FoodTemplateScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "暂无匹配模板",
+                        text = if (uiState.dataError == null) "暂无匹配模板" else "",
                         fontSize = 14.sp,
                         color = TextPlaceholder
                     )

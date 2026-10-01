@@ -23,7 +23,6 @@ import com.example.nutrition.domain.model.StorageStatus
 import com.example.nutrition.domain.repository.LocalStorageRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -59,7 +58,6 @@ class RoomLocalStorageRepository(
     override fun getTargets(): Flow<NutritionTargets?> {
         return targetDao.getFlow()
             .map { it?.toDomain() }
-            .catch { emit(null) }
     }
 
     override suspend fun setTargets(targets: NutritionTargets): Resource<Unit> {
@@ -69,6 +67,8 @@ class RoomLocalStorageRepository(
             targetDao.insert(entity)
             if (verifyTargetWrite(updated)) Resource.Success(Unit)
             else Resource.Error("保存目标失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存目标失败，请重试")
         }
@@ -83,13 +83,11 @@ class RoomLocalStorageRepository(
                     entity.dateStr to entity.toDomain()
                 }
             }
-            .catch { emit(emptyMap()) }
     }
 
     override fun getDayRecords(dateStr: String): Flow<DayRecords> {
         return recordDao.getByDateFlow(dateStr)
             .map { it?.toDomain() ?: DayRecords(dateStr = dateStr) }
-            .catch { emit(DayRecords(dateStr = dateStr)) }
     }
 
     override suspend fun setDayRecords(dateStr: String, dayData: DayRecords): Resource<Unit> {
@@ -98,6 +96,8 @@ class RoomLocalStorageRepository(
             recordDao.insert(entity)
             if (verifyDayRecordWrite(dateStr)) Resource.Success(Unit)
             else Resource.Error("保存失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
@@ -180,6 +180,8 @@ class RoomLocalStorageRepository(
             val remaining = recordDao.getAll()
             if (remaining.isEmpty()) Resource.Success(Unit)
             else Resource.Error("清空记录失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("清空记录失败，请重试")
         }
@@ -190,7 +192,6 @@ class RoomLocalStorageRepository(
     override fun getMeta(): Flow<AppMeta?> {
         return metaDao.getFlow()
             .map { it?.toDomain() }
-            .catch { emit(null) }
     }
 
     override suspend fun setMeta(meta: AppMeta): Resource<Unit> {
@@ -199,6 +200,8 @@ class RoomLocalStorageRepository(
             metaDao.insert(entity)
             if (verifyMetaWrite(meta)) Resource.Success(Unit)
             else Resource.Error("写入失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("写入失败，请重试")
         }
@@ -254,48 +257,25 @@ class RoomLocalStorageRepository(
     // ==================== 存储状态 ====================
 
     override suspend fun getStorageStatus(): StorageStatus {
-        return try {
-            val path = db.openHelper.writableDatabase.path ?: return StorageStatus(0, 0, 0)
-            val file = java.io.File(path)
-            val currentSize = if (file.exists()) file.length() else 0L
-            // Room 数据库没有硬编码上限，以 100MB 为软上限参考
-            val limitSize = 100L * 1024 * 1024
-            val recordCount = recordDao.count()
-            StorageStatus(
-                currentSize = currentSize,
-                limitSize = limitSize,
-                keys = recordCount
-            )
-        } catch (e: Exception) {
-            StorageStatus(0, 0, 0)
-        }
+        val path = db.openHelper.writableDatabase.path ?: return StorageStatus(0, 0, 0)
+        val file = java.io.File(path)
+        val currentSize = if (file.exists()) file.length() else 0L
+        return StorageStatus(currentSize, 100L * 1024 * 1024, recordDao.count())
     }
 
     override suspend fun checkStorageCapacity(): CapacityStatus {
-        return try {
-            val status = getStorageStatus()
-            val ratio = if (status.limitSize > 0) {
-                status.currentSize.toDouble() / status.limitSize
-            } else {
-                0.0
-            }
-            val ok = ratio < CAPACITY_WARN_RATIO
-            val warn = ratio >= CAPACITY_WARN_RATIO && ratio < 1.0
-            val message = when {
-                ratio >= 1.0 -> "存储空间已满，请导出数据后清理"
-                ratio >= CAPACITY_WARN_RATIO -> "存储空间即将用尽，建议导出备份"
-                else -> ""
-            }
-            CapacityStatus(
-                ok = ok,
-                warn = warn,
-                currentSize = status.currentSize,
-                limitSize = status.limitSize,
-                message = message
-            )
-        } catch (e: Exception) {
-            CapacityStatus(ok = true, warn = false, currentSize = 0, limitSize = 0, message = "")
+        val status = getStorageStatus()
+        val ratio = if (status.limitSize > 0) status.currentSize.toDouble() / status.limitSize else 0.0
+        val message = when {
+            ratio >= 1.0 -> "存储空间已满，请导出数据后清理"
+            ratio >= CAPACITY_WARN_RATIO -> "存储空间即将用尽，建议导出备份"
+            else -> ""
         }
+        return CapacityStatus(
+            ok = ratio < CAPACITY_WARN_RATIO,
+            warn = ratio >= CAPACITY_WARN_RATIO && ratio < 1.0,
+            currentSize = status.currentSize, limitSize = status.limitSize, message = message
+        )
     }
 
     // ==================== 食物模板 ====================
@@ -307,7 +287,7 @@ class RoomLocalStorageRepository(
                 foodTemplateDao.getAllFlow()
                     .map { list -> list.map { it.toDomain() } }
             )
-        }.catch { emit(emptyList()) }
+        }
     }
 
     private suspend fun ensurePresetTemplates() {
@@ -329,6 +309,8 @@ class RoomLocalStorageRepository(
         return try {
             foodTemplateDao.insert(template.toEntity())
             Resource.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存模板失败")
         }
@@ -341,6 +323,8 @@ class RoomLocalStorageRepository(
             if (template.isPreset) return Resource.Error("预设模板不可删除")
             if (foodTemplateDao.delete(id) > 0) Resource.Success(Unit)
             else Resource.Error("删除失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("删除模板失败")
         }
@@ -351,19 +335,19 @@ class RoomLocalStorageRepository(
     override fun getAllBodyRecords(): Flow<List<BodyRecord>> {
         return bodyRecordDao.getAllFlow()
             .map { list -> list.map { it.toDomain() } }
-            .catch { emit(emptyList()) }
     }
 
     override fun getBodyRecord(dateStr: String): Flow<BodyRecord?> {
         return bodyRecordDao.getByDateFlow(dateStr)
             .map { it?.toDomain() }
-            .catch { emit(null) }
     }
 
     override suspend fun saveBodyRecord(record: BodyRecord): Resource<Unit> {
         return try {
             bodyRecordDao.insert(record.toEntity())
             Resource.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
@@ -373,6 +357,8 @@ class RoomLocalStorageRepository(
         return try {
             if (bodyRecordDao.delete(dateStr) > 0) Resource.Success(Unit)
             else Resource.Error("记录不存在或已被删除")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("删除失败，请重试")
         }
@@ -402,16 +388,8 @@ class RoomLocalStorageRepository(
     // ==================== Entity <-> Domain 转换 ====================
 
     private fun TargetEntity.toDomain(): NutritionTargets {
-        val micros: List<MicronutrientTarget> = try {
-            json.decodeFromString(micronutrientsJson)
-        } catch (_: Exception) {
-            emptyList()
-        }
-        val bodyProfile: BodyProfile? = try {
-            bodyProfileJson?.let { json.decodeFromString<BodyProfile>(it) }
-        } catch (_: Exception) {
-            null
-        }
+        val micros: List<MicronutrientTarget> = json.decodeFromString(micronutrientsJson)
+        val bodyProfile = bodyProfileJson?.let { json.decodeFromString<BodyProfile>(it) }
         return NutritionTargets(
             calories = calories,
             protein = protein,
@@ -441,10 +419,10 @@ class RoomLocalStorageRepository(
     private fun DayRecordEntity.toDomain(): DayRecords {
         return DayRecords(
             dateStr = dateStr,
-            breakfast = try { json.decodeFromString(breakfastJson) } catch (_: Exception) { emptyList() },
-            lunch = try { json.decodeFromString(lunchJson) } catch (_: Exception) { emptyList() },
-            dinner = try { json.decodeFromString(dinnerJson) } catch (_: Exception) { emptyList() },
-            snack = try { json.decodeFromString(snackJson) } catch (_: Exception) { emptyList() }
+            breakfast = json.decodeFromString(breakfastJson),
+            lunch = json.decodeFromString(lunchJson),
+            dinner = json.decodeFromString(dinnerJson),
+            snack = json.decodeFromString(snackJson)
         )
     }
 
@@ -480,16 +458,8 @@ class RoomLocalStorageRepository(
     }
 
     private fun FoodTemplateEntity.toDomain(): FoodTemplate {
-        val micros: List<MealMicro> = try {
-            json.decodeFromString(micronutrientsJson)
-        } catch (_: Exception) {
-            emptyList()
-        }
-        val tags: List<String> = try {
-            json.decodeFromString(tagsJson)
-        } catch (_: Exception) {
-            emptyList()
-        }
+        val micros: List<MealMicro> = json.decodeFromString(micronutrientsJson)
+        val tags: List<String> = json.decodeFromString(tagsJson)
         return FoodTemplate(
             id = id,
             name = name,

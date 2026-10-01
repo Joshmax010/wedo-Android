@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -103,6 +104,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
+            uiState.targetsError?.let { DataLoadError(it, viewModel::initialize) }
             Spacer(modifier = Modifier.height(8.dp))
 
             // ========== 身体档案 ==========

@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 本地存储仓库接口 —— 对应小程序 utils/storage.js 的 16 个导出函数
  *
- * 读操作返回 Flow，写操作返回 Resource<Unit>（成功 / 失败+错误信息）
+ * 读操作返回 Flow；读取或本地 JSON 解码失败时抛出异常，由调用方反馈和重试。
+ * 写操作返回 Resource<Unit>（成功 / 失败+错误信息），协程取消继续传播。
  */
 interface LocalStorageRepository {
 

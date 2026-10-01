@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -96,6 +97,7 @@ fun BodyStatsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
             // 图表
             if (uiState.records.size >= 2) {
                 Card(

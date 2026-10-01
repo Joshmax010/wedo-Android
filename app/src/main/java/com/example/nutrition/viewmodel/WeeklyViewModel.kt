@@ -7,6 +7,7 @@ import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.Calculator
 import com.example.nutrition.domain.usecase.DateUtils
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,7 +79,8 @@ class WeeklyViewModel(
         val summary: SummaryGrid? = null,
         val nutrientRates: List<NutrientRateRow> = emptyList(),
         val microTable: List<MicroRow> = emptyList(),
-        val reportText: String = ""
+        val reportText: String = "",
+        val dataError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -90,10 +92,16 @@ class WeeklyViewModel(
 
     // ==================== 数据加载 ====================
 
+    private var loadJob: Job? = null
+
     fun loadData() {
-        viewModelScope.launch {
-            val weekDates = getWeekDates(baseDate)
-            val weekRange = DateUtils.formatWeekRange(baseDate)
+        loadJob?.cancel()
+        val monday = baseDate
+        loadJob = viewModelScope.launchWithErrorFeedback("读取周报数据失败，请重试", { message ->
+            _uiState.update { it.copy(dataError = message) }
+        }) {
+            val weekDates = getWeekDates(monday)
+            val weekRange = DateUtils.formatWeekRange(monday)
 
             // 读取目标配置
             val targets = repository.getTargets().first()
@@ -105,6 +113,7 @@ class WeeklyViewModel(
 
             _uiState.update {
                 it.copy(
+                    dataError = null,
                     weekRange = weekRange,
                     targetCalories = targets.calories,
                     hasData = weekSummary.avgCalories > 0 ||

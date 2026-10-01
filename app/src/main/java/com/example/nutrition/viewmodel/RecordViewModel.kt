@@ -15,6 +15,7 @@ import com.example.nutrition.domain.usecase.FoodTemplateMapper
 import com.example.nutrition.domain.usecase.MealFormValidator
 import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.components.NutrientConstantItem
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,7 +85,9 @@ class RecordViewModel(
         val deleteConfirm: DeleteTarget? = null,
         // 食物模板
         val templates: List<FoodTemplate> = emptyList(),
-        val templateSuggestions: List<FoodTemplate> = emptyList()
+        val templateSuggestions: List<FoodTemplate> = emptyList(),
+        val dataError: String? = null,
+        val templateError: String? = null
     ) {
         /** 当前模板库中已有的所有标签 */
         val allTemplateTags: List<String>
@@ -108,43 +111,44 @@ class RecordViewModel(
     // 编辑中的记录创建时间（不参与渲染，不进 UiState）
     private var editingCreatedAt: String? = null
 
+    private var recordsJob: Job? = null
+    private var templatesJob: Job? = null
+
     init {
-        // 模板列表由 Flow 自动驱动
-        viewModelScope.launch {
-            repository.getAllFoodTemplates().collect { list ->
-                _uiState.update { it.copy(templates = list) }
-            }
-        }
-
-        // 日期+餐次变化时自动刷新记录列表
-        viewModelScope.launch {
-            _uiState
-                .map { it.currentDate to it.currentMeal }
-                .distinctUntilChanged()
-                .flatMapLatest { (date, meal) ->
-                    repository.getDayRecords(date).map { dayData -> dayData.getMeal(meal) }
-                }
-                .collect { records ->
-                    _uiState.update { it.copy(recordList = records) }
-                }
-        }
-
-        // 食物名或模板库变化时自动更新补全建议
-        viewModelScope.launch {
+        loadData()
+        // Suggestions currently observe templates independently; sharing is optimized separately.
+        viewModelScope.launchWithErrorFeedback("读取食物模板失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             combine(
                 _uiState.map { it.foodName }.distinctUntilChanged(),
                 repository.getAllFoodTemplates()
             ) { query, templates ->
                 val trimmed = query.trim()
-                if (trimmed.isEmpty()) {
-                    emptyList()
-                } else {
-                    templates
-                        .filter { it.name.contains(trimmed, ignoreCase = true) }
-                        .take(5)
+                if (trimmed.isEmpty()) emptyList()
+                else templates.filter { it.name.contains(trimmed, ignoreCase = true) }.take(5)
+            }.collect { suggestions -> _uiState.update { it.copy(templateSuggestions = suggestions) } }
+        }
+    }
+
+    fun loadData() {
+        if (templatesJob?.isActive != true) {
+            templatesJob = viewModelScope.launchWithErrorFeedback("读取食物模板失败，请重试", { message ->
+                _uiState.update { it.copy(templateError = message) }
+            }) {
+                repository.getAllFoodTemplates().collect { templates ->
+                    _uiState.update { it.copy(templates = templates, templateError = null) }
                 }
-            }.collect { suggestions ->
-                _uiState.update { it.copy(templateSuggestions = suggestions) }
+            }
+        }
+        if (recordsJob?.isActive != true) {
+            recordsJob = viewModelScope.launchWithErrorFeedback("读取饮食记录失败，请重试", { message ->
+                _uiState.update { it.copy(dataError = message) }
+            }) {
+                _uiState.map { it.currentDate to it.currentMeal }.distinctUntilChanged()
+                    .flatMapLatest { (date, meal) ->
+                        repository.getDayRecords(date).map { it.getMeal(meal) }
+                    }.collect { records ->
+                        _uiState.update { it.copy(recordList = records, dataError = null) }
+                    }
             }
         }
     }
@@ -370,7 +374,7 @@ class RecordViewModel(
         val tagged = template.copy(tags = state.saveAsTemplateTags.toList())
         dismissSaveTemplatePrompt()
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.saveFoodTemplate(tagged)) {
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已保存到模板"))
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
@@ -436,7 +440,7 @@ class RecordViewModel(
         val currentDate = state.currentDate
         val currentMeal = state.currentMeal
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = if (isEdit) {
                 repository.updateRecord(currentDate, currentMeal, editingId!!, record)
             } else {
@@ -445,7 +449,7 @@ class RecordViewModel(
 
             if (result is Resource.Error) {
                 sendEvent(UIEvent.ShowToast(result.message))
-                return@launch
+                return@launchWithErrorFeedback
             }
 
             // 新增记录且食物名未存在模板中时，询问是否保存为模板
@@ -527,7 +531,7 @@ class RecordViewModel(
         val target = _uiState.value.deleteConfirm ?: return
         _uiState.update { it.copy(deleteConfirm = null) }
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = repository.deleteRecord(target.dateStr, target.mealKey, target.id)
             when (result) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))

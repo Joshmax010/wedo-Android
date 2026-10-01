@@ -88,7 +88,8 @@ class SettingsViewModel(
         // 存储状态
         val storageInfo: StorageInfo? = null,
         // 清空确认
-        val showClearConfirm: Boolean = false
+        val showClearConfirm: Boolean = false,
+        val targetsError: String? = null
     )
 
     /** 版本信息（静态） */
@@ -118,12 +119,13 @@ class SettingsViewModel(
     // ==================== 目标值加载 ====================
 
     fun loadTargets() {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("读取目标配置失败，请重试", { message -> _uiState.update { it.copy(targetsError = message) } }) {
             val targets = repository.getTargets().first()
                 ?: NutrientConstants.getDefaultTargets()
 
             _uiState.update { state ->
                 state.copy(
+                    targetsError = null,
                     calories = UnitConverter.formatForInput(targets.calories),
                     protein = UnitConverter.formatForInput(targets.protein),
                     fat = UnitConverter.formatForInput(targets.fat),
@@ -155,7 +157,7 @@ class SettingsViewModel(
     }
 
     private fun loadStorageStatus() {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val status = repository.getStorageStatus()
             val ratio = if (status.limitSize > 0) {
                 (status.currentSize.toDouble() / status.limitSize * 100).toInt()
@@ -363,7 +365,7 @@ class SettingsViewModel(
             isAutoCalculated = isAutoCalculatedFlag && bodyProfile != null
         )
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.setTargets(targets)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已保存"))
@@ -374,11 +376,11 @@ class SettingsViewModel(
     // ==================== 数据导出 ====================
 
     fun exportData(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = backupManager.exportData()
             if (!result.success) {
                 sendEvent(UIEvent.ShowToast(result.error.ifEmpty { "导出失败" }))
-                return@launch
+                return@launchWithErrorFeedback
             }
             try {
                 val clipboard =
@@ -452,7 +454,7 @@ class SettingsViewModel(
     fun confirmImport() {
         val importText = _uiState.value.importText
         if (importText.isBlank()) return
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("导入失败，请重试", { message -> _uiState.update { it.copy(importError = message) } }) {
             val result = backupManager.importData(importText)
             if (result.success) {
                 sendEvent(UIEvent.ShowToast(result.summary))
@@ -473,7 +475,7 @@ class SettingsViewModel(
 
     fun confirmClear() {
         _uiState.update { it.copy(showClearConfirm = false) }
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = repository.clearRecords()
             sendEvent(
                 UIEvent.ShowToast(

@@ -9,15 +9,15 @@ import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.BodyStatsValidator
 import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.domain.usecase.UnitConverter
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,6 +36,7 @@ class BodyStatsViewModel(
 
     data class UiState(
         val records: List<BodyRecord> = emptyList(),
+        val dataError: String? = null,
         val selectedDate: String = DateUtils.today(),
         val showDatePicker: Boolean = false,
         val weight: String = "",
@@ -56,19 +57,19 @@ class BodyStatsViewModel(
         viewModelScope.launch { _events.send(event) }
     }
 
-    init {
-        repository.getAllBodyRecords()
-            .map { it.sortedBy { record -> record.dateStr } }
-            .onEach { records ->
-                _uiState.update { it.copy(records = records) }
-            }
-            .launchIn(viewModelScope)
-    }
+    private var dataJob: Job? = null
 
-    // ==================== 兼容入口 ====================
+    init { initialize() }
 
     fun initialize() {
-        // 记录列表已由 Flow 自动驱动
+        if (dataJob?.isActive == true) return
+        dataJob = viewModelScope.launchWithErrorFeedback("读取身体记录失败，请重试", { message ->
+            _uiState.update { state -> state.copy(dataError = message) }
+        }) {
+            repository.getAllBodyRecords().collect { list ->
+                _uiState.update { state -> state.copy(records = list.sortedBy { it.dateStr }, dataError = null) }
+            }
+        }
     }
 
     // ==================== 表单输入 ====================
@@ -87,7 +88,7 @@ class BodyStatsViewModel(
     fun selectDate(dateStr: String) {
         _uiState.update { it.copy(selectedDate = dateStr, showDatePicker = false) }
         // 尝试回填已有记录
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val existing = repository.getBodyRecord(dateStr).first()
             _uiState.update {
                 it.copy(
@@ -124,7 +125,7 @@ class BodyStatsViewModel(
             note = state.note.trim().takeIf { it.isNotEmpty() }
         )
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.saveBodyRecord(record)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已保存"))
@@ -141,7 +142,7 @@ class BodyStatsViewModel(
     fun confirmDelete() {
         val date = _uiState.value.deleteDate ?: return
         _uiState.update { it.copy(deleteDate = null) }
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.deleteBodyRecord(date)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已删除"))

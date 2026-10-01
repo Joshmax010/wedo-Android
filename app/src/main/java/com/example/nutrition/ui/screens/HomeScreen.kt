@@ -30,6 +30,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
@@ -157,6 +158,9 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            uiState.dataError?.let { message ->
+                item { DataLoadError(message) { viewModel.loadData(); viewModel.checkFirstUse() } }
+            }
             // 存储容量告警横幅
             uiState.storageWarn?.let { warn ->
                 item {
@@ -175,13 +179,13 @@ fun HomeScreen(
                 )
             }
 
-            if (!uiState.hasData) {
+            if (!uiState.hasData && uiState.dataError == null) {
                 // 空状态
                 item {
                     Spacer(modifier = Modifier.height(60.dp))
                     EmptyState(onRecord = { onNavigateToRecord(null) })
                 }
-            } else {
+            } else if (uiState.hasData) {
                 // 热量环形进度卡片
                 item {
                     RingCard(

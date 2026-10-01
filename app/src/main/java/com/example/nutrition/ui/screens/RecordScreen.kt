@@ -31,6 +31,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -123,6 +124,8 @@ fun RecordScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
+            uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
+            uiState.templateError?.let { DataLoadError(it, viewModel::loadData) }
             // ========== 餐次 Tab ==========
             MealTabs(
                 currentMeal = uiState.currentMeal,

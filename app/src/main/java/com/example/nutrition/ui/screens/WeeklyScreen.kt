@@ -24,6 +24,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,6 +81,7 @@ fun WeeklyScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
+            uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
             // ========== 周切换栏 ==========
             WeekBar(
                 weekRange = uiState.weekRange,
@@ -89,7 +91,7 @@ fun WeeklyScreen(
 
             if (!uiState.hasData) {
                 // ========== 空状态 ==========
-                EmptyState()
+                if (uiState.dataError == null) EmptyState()
             } else {
                 // ========== 热量折线图 ==========
                 ChartCard {
