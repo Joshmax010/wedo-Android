@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.domain.usecase.DateUtilsTest" tests="41" skipped="0" failures="0" errors="0" timestamp="2026-10-01T06:15:26.395Z" hostname="runnervm8df0l" time="0.028">
+  <properties/>
+  <testcase name="nextDay - 普通日期" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="getWeekDates 首尾与 getWeekRange 一致" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.003"/>
+  <testcase name="parseDate - formatDate 往返一致" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekRange - 周日返回本周一到当天" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="prevWeek - 跨月边界" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="formatDate - 个位数月日补零" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekRange - 周一当天返回本周一到周日" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="addDays - 字符串版本" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="addDays - 正数向后" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="addDays - 负数向前" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="isToday - 昨天返回 false" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="addDays - 零天不变" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekDates - 周一输入也正确" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.004"/>
+  <testcase name="prevDay - 跨年" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="formatShortDate - 1 月 1 日" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="parseDate - 正常解析" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekDates - 跨月的一周" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="formatDate - 跨年到 12 月 31 日" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekDates - 返回 7 天日期" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="nextWeek - 下一周范围" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="prevDay - 普通日期" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="isToday - 明天返回 false" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="today - 格式正确 YYYY-MM-DD" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.002"/>
+  <testcase name="today - 返回今天日期字符串" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="addDays - 跨年" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="addDays - 跨月" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekRange - 周三返回本周一到周日" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="formatWeekRange - 正常格式化" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="getWeekDates - 字符串版本" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="nextDay - 跨年" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="nextDay - 跨月" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="formatWeekRange - 字符串版本" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="prevDay - 跨月 1 号到上月末" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="prevDay 和 nextDay 互为逆运算" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="prevWeek 和 nextWeek 互为逆运算" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="formatDate - 普通日期" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="prevWeek - 上一周范围" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekRange - 跨月边界" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="isToday - 今天返回 true" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.001"/>
+  <testcase name="formatShortDate - 普通日期" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <testcase name="getWeekRange - 字符串版本" classname="com.example.nutrition.domain.usecase.DateUtilsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

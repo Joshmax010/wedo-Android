@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.viewmodel.RecordViewModelTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-01T06:15:26.473Z" hostname="runnervm8df0l" time="0.092">
+  <properties/>
+  <testcase name="delayedSave_doesNotResetNewDraft" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.033"/>
+  <testcase name="autocomplete_reusesOneSubscription_andRespondsToTemplateEdits" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.016"/>
+  <testcase name="restoringPage_andSelectingSameMeal_preserveDraft" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.008"/>
+  <testcase name="changingDate_clearsPreviousRecords_beforeDelayedReadCompletes" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.011"/>
+  <testcase name="readFailure_isVisible_andChangingDateCanRecover" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.023"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
