@@ -107,7 +107,7 @@ jobs:
             git switch -C codex/cloud-test-results origin/codex/cloud-test-results
           else
             git switch --orphan codex/cloud-test-results
-            git rm -rf .
+            git rm -rf --ignore-unmatch .
           fi
           mkdir -p "runs/$RUN_ID"
           cp -R "$RESULTS_DIR/." "runs/$RUN_ID/"
