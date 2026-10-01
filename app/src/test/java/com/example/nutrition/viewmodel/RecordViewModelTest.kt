@@ -13,6 +13,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -25,6 +26,25 @@ class RecordViewModelTest {
     @get:Rule val mainDispatcherRule = MainDispatcherRule()
     private val store = ViewModelStore()
     @After fun cleanUp() { store.clear() }
+
+    @Test
+    fun historicalHomeSelectionWritesToThatDateAndMeal() = runTest {
+        val repository = BackupManagerTest.FakeRepository()
+        val date = "2026-09-28"
+        repository.setDayRecords(date, DayRecords(date, dinner = listOf(MealRecord(calories = 250.0))))
+        val viewModel = RecordViewModel(repository)
+        store.put("record", viewModel)
+        viewModel.initWithMeal(MealKey.DINNER, date)
+        runCurrent()
+        assertEquals(date, viewModel.uiState.value.currentDate)
+        assertEquals(MealKey.DINNER, viewModel.uiState.value.currentMeal)
+        assertEquals(1, viewModel.uiState.value.recordList.size)
+        viewModel.onNameInput("新晚餐")
+        viewModel.onCaloriesInput("300")
+        viewModel.saveRecord()
+        runCurrent()
+        assertEquals(2, repository.getDayRecords(date).first().dinner.size)
+    }
 
     @Test
     fun autocomplete_reusesOneSubscription_andRespondsToTemplateEdits() = runTest {

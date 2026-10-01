@@ -98,6 +98,18 @@ fun WeeklyScreen(
                 // ========== 空状态 ==========
                 if (uiState.dataError == null) EmptyState()
             } else {
+                // ========== 周报摘要 ==========
+                uiState.summary?.let { summary ->
+                    SummaryCard(
+                        summary = summary,
+                        nutrientRates = uiState.nutrientRates,
+                        onCopyReport = {
+                            copyToClipboard(context, uiState.reportText)
+                            Toast.makeText(context, "周报已复制", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
                 // ========== 热量折线图 ==========
                 ChartCard {
                     CaloriesLineChart(
@@ -109,18 +121,6 @@ fun WeeklyScreen(
                 // ========== 营养素柱状图 ==========
                 ChartCard {
                     NutrientBarChart(bars = uiState.nutrientBars)
-                }
-
-                // ========== 周报摘要 ==========
-                uiState.summary?.let { summary ->
-                    SummaryCard(
-                        summary = summary,
-                        nutrientRates = uiState.nutrientRates,
-                        onCopyReport = {
-                            copyToClipboard(context, uiState.reportText)
-                            Toast.makeText(context, "周报已复制", Toast.LENGTH_SHORT).show()
-                        }
-                    )
                 }
 
                 // ========== 微量营养素周览 ==========
@@ -253,27 +253,18 @@ private fun SummaryCard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // 四宫格
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                SummaryItem(
-                    value = summary.avgCalories.toString(),
-                    label = "日均热量(kcal)"
-                )
-                SummaryItem(
-                    value = summary.avgProtein.toString(),
-                    label = "日均蛋白质(g)"
-                )
-                SummaryItem(
-                    value = "${summary.achievementDays}/7",
-                    label = "达标天数"
-                )
-                SummaryItem(
-                    value = summary.totalGap.toInt().toString(),
-                    label = "热量缺口(kcal)"
-                )
+            val metrics = listOf(
+                summary.avgCalories.toString() to "日均热量(kcal)",
+                summary.avgProtein.toString() to "日均蛋白质(g)",
+                "${summary.achievementDays}/7" to "达标天数",
+                summary.totalGap.toInt().toString() to "热量缺口(kcal)"
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                metrics.chunked(2).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        row.forEach { (value, label) -> SummaryItem(value, label, Modifier.weight(1f)) }
+                    }
+                }
             }
 
             // 营养素达标率
@@ -308,13 +299,13 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun SummaryItem(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun SummaryItem(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
         Text(
             text = value,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Primary
+            color = TextPrimary
         )
         Text(
             text = label,

@@ -28,20 +28,21 @@ fun AppNavGraph(navController: NavHostController) {
     ) {
         composable<HomeRoute> {
             HomeScreen(
-                onNavigateToRecord = { mealKey ->
-                    navController.navigate(RecordRoute(mealKey = mealKey?.key)) {
+                onNavigateToRecord = { mealKey, date ->
+                    navController.navigate(RecordRoute(mealKey = mealKey?.key, date = date)) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true
                         }
                         launchSingleTop = true
-                        restoreState = true
+                        // Explicit date arguments must not be replaced by a restored route's arguments.
+                        restoreState = false
                     }
                 }
             )
         }
         composable<RecordRoute> { backStackEntry ->
             val route = backStackEntry.toRoute<RecordRoute>()
-            RecordScreen(initialMeal = route.mealKey?.let(MealKey::fromKey))
+            RecordScreen(initialMeal = route.mealKey?.let(MealKey::fromKey), initialDate = route.date)
         }
         composable<WeeklyRoute> {
             WeeklyScreen()

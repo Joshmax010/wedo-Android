@@ -2,6 +2,14 @@ package com.example.nutrition.ui.screens
 
 import android.app.DatePickerDialog
 import android.widget.Toast
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.nutrition.ui.components.NutritionField
+import com.example.nutrition.ui.navigation.LocalPageChrome
+import com.example.nutrition.ui.navigation.formRevealModifier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +87,10 @@ fun BodyStatsScreen(
 
     // 页面状态（单一 UiState）
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val chrome = LocalPageChrome.current
+    var editRequest by remember { mutableIntStateOf(0) }
+    SideEffect { chrome.editing = uiState.editing }
+    DisposableEffect(chrome) { onDispose { chrome.editing = false } }
 
     LaunchedEffect(Unit) {
         viewModel.initialize()
@@ -127,7 +139,7 @@ fun BodyStatsScreen(
             }
 
             // 表单
-            BodyRecordFormCard(viewModel = viewModel, uiState = uiState)
+            BodyRecordFormCard(viewModel = viewModel, uiState = uiState, modifier = formRevealModifier(editRequest))
 
             // 历史记录
             if (uiState.records.isNotEmpty()) {
@@ -142,6 +154,7 @@ fun BodyStatsScreen(
                     uiState.records.reversed().forEach { record ->
                         BodyRecordItem(
                             record = record,
+                            onEdit = { viewModel.editRecord(record); editRequest++ },
                             onDelete = { viewModel.requestDelete(record.dateStr) }
                         )
                     }
@@ -174,22 +187,27 @@ fun BodyStatsScreen(
 @Composable
 private fun BodyRecordFormCard(
     viewModel: BodyStatsViewModel,
-    uiState: BodyStatsViewModel.UiState
+    uiState: BodyStatsViewModel.UiState,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "记录身体数据",
+                text = if (uiState.editing) "编辑身体记录" else "记录身体数据",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
+
+            if (uiState.editing) {
+                TextButton(onClick = viewModel::cancelEdit) { Text("取消编辑", color = Primary) }
+            }
 
             // 日期选择
             val contextForPicker = LocalContext.current
@@ -225,10 +243,10 @@ private fun BodyRecordFormCard(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
 
-            BodyFormField("体重", "kg", uiState.weight, viewModel::onWeightInput, true)
-            BodyFormField("体脂率", "%", uiState.bodyFat, viewModel::onBodyFatInput)
-            BodyFormField("肌肉量", "kg", uiState.muscle, viewModel::onMuscleInput)
-            BodyFormField("备注", "", uiState.note, viewModel::onNoteInput, keyboardType = KeyboardType.Text)
+            NutritionField("体重", "kg", uiState.weight, viewModel::onWeightInput, true)
+            NutritionField("体脂率", "%", uiState.bodyFat, viewModel::onBodyFatInput)
+            NutritionField("肌肉量", "kg", uiState.muscle, viewModel::onMuscleInput)
+            NutritionField("备注", "", uiState.note, viewModel::onNoteInput, keyboardType = KeyboardType.Text)
 
             Button(
                 onClick = { viewModel.saveRecord() },
@@ -238,65 +256,21 @@ private fun BodyRecordFormCard(
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
-                Text("保存", fontWeight = FontWeight.SemiBold)
+                Text(if (uiState.editing) "更新记录" else "保存记录", fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
-@Composable
-private fun BodyFormField(
-    label: String,
-    unit: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    required: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Decimal
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier.weight(0.35f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium
-            )
-            if (unit.isNotEmpty()) {
-                Text(" $unit", fontSize = 12.sp, color = TextPlaceholder)
-            }
-            if (required) {
-                Text(" *", fontSize = 14.sp, color = Error)
-            }
-        }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(0.65f),
-            placeholder = { Text(if (required) "必填" else "选填", fontSize = 13.sp, color = TextPlaceholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            textStyle = TextStyle(fontSize = 14.sp),
-            colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(12.dp)
-        )
-    }
-}
 
 @Composable
 private fun BodyRecordItem(
     record: BodyRecord,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

@@ -103,7 +103,7 @@ app/src/main/java/com/example/nutrition/
 └── viewmodel/             # 各页面 ViewModel 与事件定义
 ```
 
-主源码共 72 个 Kotlin 文件。
+主源码共 73 个 Kotlin 文件。
 
 ## 构建与开发
 

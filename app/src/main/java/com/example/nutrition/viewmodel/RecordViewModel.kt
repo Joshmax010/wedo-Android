@@ -113,6 +113,7 @@ class RecordViewModel(
     private var editingCreatedAt: String? = null
     private var initialized = false
     private var initialMealArgument: MealKey? = null
+    private var initialDateArgument: String? = null
     private var explicitMealSelection = false
     private var formRevision = 0L
 
@@ -168,13 +169,14 @@ class RecordViewModel(
     /**
      * 接收从首页传来的选中餐次（可选），保留恢复页面时的未保存表单
      */
-    fun initWithMeal(mealKey: MealKey?) {
-        if (initialized && initialMealArgument == mealKey) return
+    fun initWithMeal(mealKey: MealKey?, date: String? = null) {
+        if (initialized && initialMealArgument == mealKey && initialDateArgument == date) return
         initialMealArgument = mealKey
+        initialDateArgument = date
         if (initialized && hasPendingForm()) return
         initialized = true
         explicitMealSelection = mealKey != null
-        _uiState.update { it.withSelection(meal = mealKey ?: MealKey.fromCurrentTime()) }
+        _uiState.update { it.withSelection(date = date ?: it.currentDate, meal = mealKey ?: MealKey.fromCurrentTime()) }
         loadData()
     }
 

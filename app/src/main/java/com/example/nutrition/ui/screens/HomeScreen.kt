@@ -72,7 +72,7 @@ fun HomeScreen(
             initializer { HomeViewModel(NutritionApp.instance.repository) }
         }
     ),
-    onNavigateToRecord: (MealKey?) -> Unit = {}
+    onNavigateToRecord: (MealKey?, String) -> Unit = { _, _ -> }
 ) {
     // 页面状态（单一 UiState）
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -141,7 +141,7 @@ fun HomeScreen(
                 // 空状态
                 item {
                     Spacer(modifier = Modifier.height(60.dp))
-                    EmptyState(onRecord = { onNavigateToRecord(null) })
+                    EmptyState(onRecord = { onNavigateToRecord(null, uiState.currentDate) })
                 }
             } else if (uiState.hasData) {
                 // 热量环形进度卡片
@@ -189,7 +189,7 @@ fun HomeScreen(
                                     count = meal.count,
                                     dailyTarget = uiState.targetCalories,
                                     onClick = { key ->
-                                        onNavigateToRecord(key)
+                                        onNavigateToRecord(key, uiState.currentDate)
                                     }
                                 )
                             }

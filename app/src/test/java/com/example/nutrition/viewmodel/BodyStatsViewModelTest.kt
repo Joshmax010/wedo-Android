@@ -21,6 +21,32 @@ class BodyStatsViewModelTest {
     @After fun cleanUp() { store.clear() }
 
     @Test
+    fun editingHistoryCancelsAnOlderReadAndRefillsTheSnapshot() = runTest {
+        val loaded = CompletableDeferred<Unit>()
+        val repository = object : LocalStorageRepository by BackupManagerTest.FakeRepository() {
+            override fun getBodyRecord(dateStr: String) = flow<BodyRecord?> {
+                loaded.await()
+                emit(BodyRecord(dateStr, weightKg = 99.0))
+            }
+        }
+        val viewModel = BodyStatsViewModel(repository)
+        store.put("body", viewModel)
+        viewModel.selectDate("2026-09-28")
+        runCurrent()
+        viewModel.editRecord(BodyRecord("2026-09-29", 68.4, bodyFatPercent = 18.5, note = "历史备注"))
+        loaded.complete(Unit)
+        runCurrent()
+        assertEquals("2026-09-29", viewModel.uiState.value.selectedDate)
+        assertEquals("68.4", viewModel.uiState.value.weight)
+        assertEquals("18.5", viewModel.uiState.value.bodyFat)
+        assertEquals("历史备注", viewModel.uiState.value.note)
+        assertTrue(viewModel.uiState.value.editing)
+        viewModel.cancelEdit()
+        assertFalse(viewModel.uiState.value.editing)
+        assertEquals("", viewModel.uiState.value.weight)
+    }
+
+    @Test
     fun delayedDateRead_doesNotOverwriteUserInput() = runTest {
         val loaded = CompletableDeferred<Unit>()
         val repository = object : LocalStorageRepository by BackupManagerTest.FakeRepository() {

@@ -21,7 +21,7 @@ object HomeRoute : AppRoute
  * @param mealKey 从首页带入的餐次 key（breakfast/lunch/dinner/snack），为 null 时按当前时间推断
  */
 @Serializable
-data class RecordRoute(val mealKey: String? = null) : AppRoute
+data class RecordRoute(val mealKey: String? = null, val date: String? = null) : AppRoute
 
 /** 底部导航 - 周报 */
 @Serializable

@@ -38,6 +38,7 @@ class BodyStatsViewModel(
         val dataError: String? = null,
         val dateError: String? = null,
         val selectedDate: String = DateUtils.today(),
+        val editing: Boolean = false,
         val showDatePicker: Boolean = false,
         val weight: String = "",
         val bodyFat: String = "",
@@ -106,6 +107,7 @@ class BodyStatsViewModel(
         _uiState.update { state ->
             state.copy(
                 selectedDate = dateStr, showDatePicker = false,
+                editing = if (changedDate) false else state.editing,
                 weight = if (changedDate) "" else state.weight,
                 bodyFat = if (changedDate) "" else state.bodyFat,
                 muscle = if (changedDate) "" else state.muscle,
@@ -120,6 +122,7 @@ class BodyStatsViewModel(
             if (_uiState.value.selectedDate != dateStr) return@launchWithErrorFeedback
             _uiState.update { state ->
                 state.copy(
+                    editing = existing != null,
                     weight = if ("weight" in editedDateFields) state.weight else existing?.let { r -> UnitConverter.formatForInput(r.weightKg) } ?: "",
                     bodyFat = if ("bodyFat" in editedDateFields) state.bodyFat else existing?.bodyFatPercent?.let { v -> UnitConverter.formatForInput(v) } ?: "",
                     muscle = if ("muscle" in editedDateFields) state.muscle else existing?.muscleKg?.let { v -> UnitConverter.formatForInput(v) } ?: "",
@@ -130,6 +133,30 @@ class BodyStatsViewModel(
     }
 
     // ==================== 保存记录 ====================
+
+    /** The displayed history row is already a loaded snapshot; cancel older date reads. */
+    fun editRecord(record: BodyRecord) {
+        dateJob?.cancel()
+        editedDateFields.clear()
+        _uiState.update {
+            it.copy(
+                selectedDate = record.dateStr, editing = true, dateError = null, showDatePicker = false,
+                weight = UnitConverter.formatForInput(record.weightKg),
+                bodyFat = record.bodyFatPercent?.let(UnitConverter::formatForInput) ?: "",
+                muscle = record.muscleKg?.let(UnitConverter::formatForInput) ?: "",
+                note = record.note ?: ""
+            )
+        }
+    }
+
+    fun cancelEdit() {
+        dateJob?.cancel()
+        editedDateFields.clear()
+        _uiState.update {
+            it.copy(selectedDate = DateUtils.today(), editing = false, dateError = null,
+                weight = "", bodyFat = "", muscle = "", note = "")
+        }
+    }
 
     fun saveRecord() {
         if (dateJob?.isActive == true || _uiState.value.dateError != null) {
