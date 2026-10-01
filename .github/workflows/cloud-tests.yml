@@ -3,6 +3,15 @@ name: Android cloud tests
 on:
   push:
     branches: [codex/atomic-backup-import]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/cloud-tests.yml'
   workflow_dispatch:
 
 permissions:
@@ -56,9 +65,15 @@ jobs:
               result['suites'][name] = dict(totals, report_files=len(files))
           for file in glob.glob('app/build/reports/lint-results-debug.*'):
               shutil.copyfile(file, out / pathlib.Path(file).name)
+          jvm = result['suites']['jvm']
+          if result['job_status'] == 'success' and (jvm['tests'] == 0 or any(jvm[k] for k in ['failures', 'errors', 'skipped'])):
+              result['job_status'] = 'failure'
+              result['validation_error'] = 'Expected nonzero JVM tests with no failures, errors, or skipped tests.'
           (out / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
               f.write('```json\n' + json.dumps(result, indent=2) + '\n```\n')
+          if 'validation_error' in result:
+              raise SystemExit(result['validation_error'])
           PY
       - name: Store diagnostic artifact
         if: always()
