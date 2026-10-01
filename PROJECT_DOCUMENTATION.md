@@ -298,7 +298,7 @@ TDEE = BMR × 活动系数
 3. 点击「自动计算推荐值」。
 4. 在弹窗中查看 BMR、TDEE 和推荐目标。
 5. 点击「应用到表单」填充到目标表单。
-6. 点击「保存目标」持久化。
+6. 点击「保存档案与目标」共同持久化。
 
 ---
 
@@ -335,7 +335,7 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
 ### 7.3 运行测试
 
 - 单元测试位于 `app/src/test/java/...`。
-- 基础测试文件：`DateUtilsTest.kt`、`CalculatorTest.kt`、`BackupManagerTest.kt`、`InteropTest.kt`（106 个原有用例）；本轮新增备份读取保护及 ViewModel 测试，目前共 121 个 JVM 用例。
+- 基础测试文件：`DateUtilsTest.kt`、`CalculatorTest.kt`、`BackupManagerTest.kt`、`InteropTest.kt`（106 个原有用例）；本轮新增备份读取保护、ViewModel 和 UI 完成判定测试，目前共 136 个 JVM 用例。
 - 当前测试运行需要 JDK 17 + Gradle 环境。
 
 **已知环境限制**：由于项目路径包含中文及空格（`D:\AAAAA\ai\wedo\健身wedo-android`），直接通过命令行执行 `:app:testDebugUnitTest` 会导致 Gradle Test Worker 在 Windows 上加载测试类时抛出 `ClassNotFoundException`。已在 Gradle 8.13 与 9.4.1 上分别复现，属 Gradle Test Worker 进程路径编码的已知缺陷，非代码问题。
@@ -370,7 +370,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 上述 Room 设备用例留待你本地 Android 设备执行。云端按当前要求完成主代码编译、JVM 单元测试和 Lint，未安排 APK 打包或设备测试，结果见 §7.5。
 
-### 7.5 本轮底层优化的统一回归
+### 7.5 本轮底层优化与 UI 改版的统一回归
 
 完整拉取、编译、设备测试命令和手工检查项见 [`LOCAL_REGRESSION_CHECKLIST.md`](./LOCAL_REGRESSION_CHECKLIST.md)。本轮底层优化新增 15 个 JVM 用例和 14 个 Room 设备用例；后续代码清理未新增测试文件。2026-10-01 已通过 GitHub Actions 验证清理后主代码编译、全部 121 个 JVM 用例（零失败/错误/跳过）及 Lint（零错误，39 条原有警告）；38 个 Room 设备用例仍待本地执行。完整日志、测试明细及验证提交见 [`CLOUD_VALIDATION.md`](./CLOUD_VALIDATION.md)。应用仍为 1.4.3，数据库仍为 v4，备份 Schema 仍为 v3。
 
@@ -392,6 +392,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 修正新完成判定的 110% 浮点边界：直接比较热量区间，避免恰好 2200/2000 kcal 被误判超标。新增边界测试已发现并覆盖此问题，完整验证重跑。 | `DailyGoal.kt`、`DailyGoalTest.kt` |
 | 待发布 | 基于 1.4.3 | UI 第四批：设置首页分组，档案与目标/数据/关于拆为共享父 ViewModel 的子页；模板新增位于标题右侧，搜索筛选随列表滚动；共享字段与生命周期事件收集，普通保存轻反馈，今天手动饮食保存后首次全天完成短暂庆祝。新增 8 个目标边界与 3 个保存反馈用例，云端验证待完成。 | 设置、模板、公共反馈、完成判定及相关测试 |
 | 待发布 | 基于 1.4.3 | UI 第三批：首页跳转携带日期与餐次，显式导航避免旧路由参数覆盖；饮食与身体历史记录回填现有表单并定位标题，编辑与输入时保持必要上下文；周报摘要优先并采用两列指标；复用营养字段组件，移除重复字段和双单位输入实现。新增历史日期写入及身体记录旧读取消回归用例，编译、125 个 JVM 用例和 Lint 已通过。 | 导航、录入、身体记录、周报、共用字段和 ViewModel 测试 |
 | 待发布 | 基于 1.4.3 | UI 第二批：共享滚动导航与页面大标题，浏览时收起上下栏，反向滚动恢复；首页移除额外悬浮入口，按热量/宏量/四餐/微量排列，修正零热量记录的空状态和热量达标时的缺口文本；模板新增移到大标题右侧。第一批编译、121 个 JVM 用例和 Lint 已通过；本批编译、123 个 JVM 用例和 Lint 已通过。 | 主界面、`PageChrome.kt`、六个页面与 `HomeViewModel` |

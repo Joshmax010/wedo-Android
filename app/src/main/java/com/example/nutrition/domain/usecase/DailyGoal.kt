@@ -12,7 +12,8 @@ object DailyGoal {
                 .any { !it.isFinite() || it <= 0.0 }) return Completion(false, false)
         val total = Calculator.aggregateDay(day)
         val macros = total.protein >= targets.protein && total.fat >= targets.fat && total.carbs >= targets.carbs
-        val calories = total.calories / targets.calories * 100.0
-        return Completion(macros, macros && calories in 90.0..110.0)
+        // Compare amounts directly: 2200 / 2000 * 100 may become 110.00000000000001.
+        val calorieBand = targets.calories * 0.9..targets.calories * 1.1
+        return Completion(macros, macros && total.calories.toDouble() in calorieBand)
     }
 }
