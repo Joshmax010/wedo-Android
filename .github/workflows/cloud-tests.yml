@@ -1,0 +1,118 @@
+name: Android cloud tests
+
+on:
+  push:
+    branches: [codex/atomic-backup-import]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile, run JVM tests, and lint
+        run: |
+          mkdir -p cloud-test-results
+          set -o pipefail
+          bash gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --max-workers=4 --console=plain 2>&1 | tee cloud-test-results/build.log
+      - name: Enable emulator acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run Room tests on Android 34
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          cores: 2
+          ram-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash gradlew :app:connectedDebugAndroidTest --max-workers=4 --console=plain > cloud-test-results/device.log 2>&1
+      - name: Collect reports
+        if: always()
+        env:
+          TESTED_COMMIT: ${{ github.sha }}
+          TEST_JOB_STATUS: ${{ job.status }}
+        run: |
+          python3 - <<'PY'
+          import glob, json, os, pathlib, shutil, xml.etree.ElementTree as E
+          out = pathlib.Path('cloud-test-results')
+          out.mkdir(exist_ok=True)
+          result = {'commit': os.environ['TESTED_COMMIT'], 'job_status': os.environ['TEST_JOB_STATUS'], 'suites': {}}
+          for name, pattern in [('jvm', 'app/build/test-results/testDebugUnitTest/TEST-*.xml'), ('room', 'app/build/outputs/androidTest-results/connected/**/*.xml')]:
+              files = glob.glob(pattern, recursive=True)
+              totals = {k: 0 for k in ['tests', 'failures', 'errors', 'skipped']}
+              for file in files:
+                  root = E.parse(file).getroot()
+                  suites = [root] if root.tag == 'testsuite' else root.findall('.//testsuite')
+                  for suite in suites:
+                      for key in totals:
+                          totals[key] += int(suite.attrib.get(key, 0))
+                  target = out / name / pathlib.Path(file).name
+                  target.parent.mkdir(exist_ok=True)
+                  shutil.copyfile(file, target)
+              result['suites'][name] = dict(totals, report_files=len(files))
+          for file in glob.glob('app/build/reports/lint-results-debug.*'):
+              shutil.copyfile(file, out / pathlib.Path(file).name)
+          (out / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('```json\n' + json.dumps(result, indent=2) + '\n```\n')
+          PY
+      - name: Store diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-cloud-test-results
+          path: cloud-test-results/
+          retention-days: 7
+
+  record-results:
+    needs: test
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-cloud-test-results
+          path: ${{ runner.temp }}/test-results
+      - name: Record results on a separate branch
+        env:
+          RESULTS_DIR: ${{ runner.temp }}/test-results
+          TESTED_COMMIT: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          git fetch origin codex/cloud-test-results || true
+          if git show-ref --verify --quiet refs/remotes/origin/codex/cloud-test-results; then
+            git switch -C codex/cloud-test-results origin/codex/cloud-test-results
+          else
+            git switch --orphan codex/cloud-test-results
+            git rm -rf .
+          fi
+          mkdir -p "runs/$RUN_ID"
+          cp -R "$RESULTS_DIR/." "runs/$RUN_ID/"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add runs
+          git commit -m "Record cloud test results for $TESTED_COMMIT"
+          git push origin HEAD:refs/heads/codex/cloud-test-results
