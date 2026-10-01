@@ -62,7 +62,6 @@ import com.example.nutrition.ui.theme.BgMain
 import com.example.nutrition.ui.theme.BgTag
 import com.example.nutrition.ui.theme.Error
 import com.example.nutrition.ui.theme.Primary
-import com.example.nutrition.ui.theme.Spacing
 import com.example.nutrition.ui.theme.TextInverse
 import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.ui.theme.TextPrimary

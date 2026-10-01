@@ -70,10 +70,10 @@ apksigner verify --print-certs wedo-fitness-v1.4.3.apk
 | UI | Jetpack Compose + Material 3（Compose BOM 2024.06.00） |
 | 架构 | MVI 风格 MVVM — 单一 `UiState`（StateFlow）＋一次性事件（`Channel`）＋ UseCase ＋ Repository |
 | 导航 | navigation-compose 2.8.2（`@Serializable` 类型安全路由） |
-| 存储 | Room 2.8.4（读操作返回 `Flow`，写操作返回 `Resource<Unit>`）＋ DataStore |
+| 存储 | Room 2.8.4（读操作返回 `Flow`，写操作返回 `Resource<Unit>`） |
 | 序列化 | kotlinx.serialization 1.6.3 |
 | 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.2 |
-| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（106 个单元测试）＋ Room instrumentation 测试 |
+| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（121 个单元测试）＋ Room instrumentation 测试 |
 
 最低支持 Android 8.0（API 26），targetSdk / compileSdk 34。
 
@@ -84,7 +84,6 @@ app/src/main/java/com/example/nutrition/
 ├── data/
 │   ├── local/db/          # Room 数据库与 DAO
 │   ├── local/entity/      # 数据表实体
-│   ├── local/prefs/       # DataStore 封装
 │   └── repository/        # 仓库实现（Flow 读 / Resource 写）
 ├── domain/
 │   ├── constants/         # 营养素常量与预设食物模板
@@ -100,7 +99,7 @@ app/src/main/java/com/example/nutrition/
 └── viewmodel/             # 各页面 ViewModel 与事件定义
 ```
 
-主源码共 71 个 Kotlin 文件。
+主源码共 70 个 Kotlin 文件。
 
 ## 构建与开发
 
@@ -189,7 +188,7 @@ Verify the download: SHA-256 `119b0fe5be6c95ae4283b6d3e74bbb8a7833bbd81184ef3df6
 
 ### Tech Stack
 
-Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · DataStore · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 106 unit tests.
+Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 121 unit tests.
 
 ### Build
 

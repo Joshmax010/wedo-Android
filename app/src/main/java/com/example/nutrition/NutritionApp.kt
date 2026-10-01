@@ -3,7 +3,6 @@ package com.example.nutrition
 import android.app.Application
 import android.util.Log
 import com.example.nutrition.data.local.db.NutritionDatabase
-import com.example.nutrition.data.local.prefs.DataStoreManager
 import com.example.nutrition.data.repository.RoomLocalStorageRepository
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.repository.LocalStorageRepository
@@ -19,7 +18,6 @@ class NutritionApp : Application() {
 
     val database: NutritionDatabase by lazy { NutritionDatabase.getInstance(this) }
     val repository: LocalStorageRepository by lazy { RoomLocalStorageRepository(database) }
-    val dataStoreManager: DataStoreManager by lazy { DataStoreManager(this) }
     val backupManager: BackupManager by lazy { BackupManager(repository) }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

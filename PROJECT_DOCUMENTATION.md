@@ -23,7 +23,6 @@
 | 架构 | MVI 风格 MVVM | 单一 `UiState`（StateFlow）+ 一次性事件（Channel）+ Repository + UseCase |
 | 导航 | navigation-compose 2.8.2 | 类型安全路由（@Serializable route 对象），替代手写字符串路由 |
 | 本地存储 | Room | SQLite 封装，目标/记录/元信息；读操作返回 Flow |
-| 偏好设置 | DataStore | 预留，当前主要用于应用级配置 |
 | 序列化 | kotlinx.serialization | 模型与 JSON 备份、导航路由参数 |
 | 错误处理 | `Resource<T>` 封装 | 所有写操作返回 `Resource.Success`/`Resource.Error`，错误信息可直接展示 |
 | 图表 | Compose Canvas 自定义 | 周报折线图/柱状图 |
@@ -38,7 +37,6 @@
 | androidx.lifecycle（runtime-compose / viewmodel-compose） | 2.8.2 | 生命周期感知状态收集 |
 | androidx.navigation:navigation-compose | 2.8.2 | 类型安全路由 |
 | androidx.room（runtime / ktx / compiler） | 2.8.4 | 本地存储，compiler 经 KSP 接入 |
-| androidx.datastore:datastore-preferences | 1.1.1 | 偏好设置（预留） |
 | org.jetbrains.kotlinx:kotlinx-serialization-json | 1.6.3 | 模型序列化与 JSON 备份 |
 | androidx.core:core-ktx | 1.13.1 | 基础扩展 |
 | 测试：junit / coroutines-test / androidx.test.ext / espresso / room-testing | 4.13.2 / 1.8.1 / 1.1.5 / 3.5.1 / 2.8.4 | 单元测试与 Instrumentation |
@@ -58,7 +56,6 @@
 │   │   ├── data/                            # 数据层
 │   │   │   ├── local/db/                  # Room 数据库/DAO
 │   │   │   ├── local/entity/               # Room Entity
-│   │   │   ├── local/prefs/                 # DataStore
 │   │   │   └── repository/                # LocalStorageRepository 实现
 │   │   ├── domain/                          # 领域层
 │   │   │   ├── constants/                  # 常量（营养素默认值、版本号）
@@ -70,7 +67,7 @@
 │   │   │   ├── navigation/                 # 类型安全路由（AppRoutes.kt）/导航栏
 │   │   │   ├── screens/                    # 页面
 │   │   │   ├── charts/                     # 自定义 Canvas 图表
-│   │   │   └── theme/                      # 颜色/字体/间距
+│   │   │   └── theme/                      # 颜色/字体
 │   │   └── viewmodel/                      # 页面 ViewModel（单一 UiState + UIEvent 事件流）
 │   │       └── UIEvent.kt                  # 一次性事件（Toast）定义
 │   └── src/test/...                         # 单元测试
@@ -86,7 +83,7 @@
 
 ### 3.1 分层
 
-- **UI 层**：Compose Screen + ViewModel。Screen 通过 `collectAsState()` 订阅 ViewModel 暴露的单一 `uiState`，一次性 Toast 事件通过 `LaunchedEffect(Unit) { viewModel.events.collect { ... } }` 收集。
+- **UI 层**：Compose Screen + ViewModel。Screen 通过 `collectAsStateWithLifecycle()` 订阅 ViewModel 暴露的单一 `uiState`，一次性 Toast 事件在 `repeatOnLifecycle(STARTED)` 中收集。
 - **ViewModel 层**：每个页面对应一个 ViewModel，持有 `MutableStateFlow<UiState>`（对外只读 `asStateFlow()`）和 `Channel<UIEvent>`（`receiveAsFlow()`），负责业务协调。
 - **Domain 层**：
   - `model`：纯数据类，如 `NutritionTargets`、`MealRecord`、`BodyProfile`、`Resource`（写操作结果封装）等。
@@ -98,12 +95,12 @@
 
 ```
 UI（Screen）
-  ↓ uiState.collectAsState()（状态） / events.collect（一次性事件）
+  ↓ uiState.collectAsStateWithLifecycle()（状态） / events.collect（生命周期内的一次性事件）
 ViewModel（MutableStateFlow<UiState> + Channel<UIEvent>）
   ↓ collect / flatMapLatest / combine
 Repository（读：Flow；写：suspend -> Resource<Unit>）
   ↓ 实现
-Room Database / DataStore
+Room Database
 ```
 
 ### 3.3 关键设计决策
@@ -362,6 +359,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 代码清理：删除未调用的 DataStore 封装、Application 入口与依赖，删除未使用的间距/圆角/快捷字号常量及空页面占位文件。引导状态仍由 Room 元信息保存；页面布局、数据库与备份格式保持不变。同步 README 测试数量及架构说明。 | `app/build.gradle.kts`、`NutritionApp.kt`、`data/local/prefs/`、`ui/theme/`、`ui/screens/`、README 与维护文档 |
 | 待发布 | 基于 1.4.3 | 新增云端 CI：主代码编译、121 个 JVM 用例与 Lint 全部通过；按要求不打包 APK、不执行设备测试。修复验证中发现的原有 API 27 导航栏主题属性兼容问题，公共主题继承、版本资源保护；保留最低 API 26。报告独立归档，验证详情见 `CLOUD_VALIDATION.md`。 | `.github/workflows/cloud-tests.yml`、`res/values/themes.xml`、`res/values-v27/themes.xml`、验证与维护文档 |
 | 待发布 | 基于 1.4.3 | 整体审查：延迟读取按字段合并，保留新输入并补齐未编辑的原有目标/身体字段；首页元信息错误独立提示，日期/餐次切换及时移除上一视图记录，读取失败后可恢复。新增 4 个读取状态和取消单元用例，补充统一回归清单及验证状态说明（全部新增用例待本地执行）。 | 相关 ViewModel、Screen、单元测试、`LOCAL_REGRESSION_CHECKLIST.md`、维护文档 |
 | 待发布 | 基于 1.4.3 | 页面状态与提示按生命周期收集；恢复录入页、设置页时保留未保存表单，异步读取/保存不覆盖较新的输入，身体记录取消旧日期读取，周报持续观察记录和目标变化。新增 8 个表单与异步状态单元用例（待本地执行）。 | `ui/screens/`、相关 ViewModel 与单元测试 |
