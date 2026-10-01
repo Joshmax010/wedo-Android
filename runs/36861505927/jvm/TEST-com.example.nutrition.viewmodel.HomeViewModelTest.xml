@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.viewmodel.HomeViewModelTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-01T12:26:47.391Z" hostname="runnervm8df0l" time="0.041">
+  <properties/>
+  <testcase name="exactCalorieTargetDisplaysZeroGap" classname="com.example.nutrition.viewmodel.HomeViewModelTest" time="0.035"/>
+  <testcase name="zeroCalorieRecordStillDisplaysDashboard" classname="com.example.nutrition.viewmodel.HomeViewModelTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
