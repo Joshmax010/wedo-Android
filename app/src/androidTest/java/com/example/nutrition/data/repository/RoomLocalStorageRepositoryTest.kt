@@ -10,6 +10,7 @@ import com.example.nutrition.data.local.entity.DayRecordEntity
 import com.example.nutrition.data.local.entity.FoodTemplateEntity
 import com.example.nutrition.data.local.entity.MetaEntity
 import com.example.nutrition.data.local.entity.TargetEntity
+import com.example.nutrition.domain.constants.PresetFoodTemplates
 import com.example.nutrition.domain.model.AppMeta
 import com.example.nutrition.domain.model.BodyRecord
 import com.example.nutrition.domain.model.DayRecords
@@ -582,6 +583,73 @@ class RoomLocalStorageRepositoryTest {
         db.recordDao().insert(damaged)
         assertTrue(repo.addRecord("2026-06-30", MealKey.LUNCH, sampleRecord()) is Resource.Error)
         assertEquals(damaged, db.recordDao().getByDate("2026-06-30"))
+    }
+
+    @Test
+    fun getAllFoodTemplates_并发订阅仅初始化一次() = runTest {
+        db.openHelper.writableDatabase.execSQL("CREATE TABLE preset_attempts (id TEXT NOT NULL)")
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER audit_preset_insert BEFORE INSERT ON food_templates
+            WHEN NEW.isPreset = 1
+            BEGIN
+                INSERT INTO preset_attempts (id) VALUES (NEW.id);
+            END
+            """.trimIndent()
+        )
+        val gate = CompletableDeferred<Unit>()
+        val results = coroutineScope {
+            val jobs = (1..4).map {
+                async(Dispatchers.Default) { gate.await(); repo.getAllFoodTemplates().first() }
+            }
+            gate.complete(Unit)
+            jobs.awaitAll()
+        }
+        val expectedIds = PresetFoodTemplates.getAll().map { it.id }.toSet()
+        results.forEach { assertEquals(expectedIds, it.map { template -> template.id }.toSet()) }
+        repo.getAllFoodTemplates().first()
+        db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM preset_attempts").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(expectedIds.size, cursor.getInt(0))
+        }
+    }
+
+    @Test
+    fun getAllFoodTemplates_初始化保留已编辑预设和自定义模板() = runTest {
+        val edited = PresetFoodTemplates.getAll().first().copy(calories = 321.0, tags = listOf("我的标签"))
+        val custom = FoodTemplate(id = "my-custom", name = "自定义模板", calories = 400.0)
+        assertTrue(repo.saveFoodTemplate(edited) is Resource.Success)
+        assertTrue(repo.saveFoodTemplate(custom) is Resource.Success)
+        val templates = repo.getAllFoodTemplates().first()
+        assertEquals(edited, templates.single { it.id == edited.id })
+        assertEquals(custom, templates.single { it.id == custom.id })
+    }
+
+    @Test
+    fun getAllFoodTemplates_初始化失败回滚且允许重试() = runTest {
+        val custom = FoodTemplate(id = "my-custom", name = "自定义模板", calories = 400.0)
+        assertTrue(repo.saveFoodTemplate(custom) is Resource.Success)
+        val before = snapshotDatabase()
+        val lastId = PresetFoodTemplates.getAll().last().id.replace("'", "''")
+        db.openHelper.writableDatabase.execSQL(
+            """
+            CREATE TRIGGER fail_preset_init BEFORE INSERT ON food_templates
+            WHEN NEW.id = '$lastId'
+            BEGIN
+                SELECT RAISE(ABORT, 'Simulated preset initialization failure');
+            END
+            """.trimIndent()
+        )
+        try {
+            repo.getAllFoodTemplates().first()
+            fail("Initialization should fail")
+        } catch (_: android.database.sqlite.SQLiteException) {
+            assertEquals(before, snapshotDatabase())
+        }
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_preset_init")
+        val templates = repo.getAllFoodTemplates().first()
+        assertEquals(PresetFoodTemplates.getAll().size, templates.count { it.isPreset })
+        assertEquals(custom, templates.single { it.id == custom.id })
     }
 
     // ==================== 边界场景测试 ====================

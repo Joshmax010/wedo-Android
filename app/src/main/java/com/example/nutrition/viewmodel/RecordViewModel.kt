@@ -116,11 +116,11 @@ class RecordViewModel(
 
     init {
         loadData()
-        // Suggestions currently observe templates independently; sharing is optimized separately.
+        // Reuse the already-observed template list for autocomplete.
         viewModelScope.launchWithErrorFeedback("读取食物模板失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             combine(
                 _uiState.map { it.foodName }.distinctUntilChanged(),
-                repository.getAllFoodTemplates()
+                _uiState.map { it.templates }.distinctUntilChanged()
             ) { query, templates ->
                 val trimmed = query.trim()
                 if (trimmed.isEmpty()) emptyList()

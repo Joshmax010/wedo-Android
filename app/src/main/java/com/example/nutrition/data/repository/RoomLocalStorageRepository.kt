@@ -22,6 +22,8 @@ import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.model.StorageStatus
 import com.example.nutrition.domain.repository.LocalStorageRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
@@ -52,6 +54,8 @@ class RoomLocalStorageRepository(
     private val metaDao = db.metaDao()
     private val foodTemplateDao = db.foodTemplateDao()
     private val bodyRecordDao = db.bodyRecordDao()
+    private val presetMutex = Mutex()
+    private var presetsInitialized = false
 
     // ==================== 营养目标 ====================
 
@@ -290,19 +294,19 @@ class RoomLocalStorageRepository(
         }
     }
 
-    private suspend fun ensurePresetTemplates() {
-        val currentPresets = com.example.nutrition.domain.constants.PresetFoodTemplates.getAll()
-        val currentPresetIds = currentPresets.map { it.id }.toSet()
-
-        // 删除已不在当前预设列表中的旧预设（避免改名/换 id 后重复）
-        foodTemplateDao.getAll()
-            .filter { it.isPreset && it.id !in currentPresetIds }
-            .forEach { foodTemplateDao.delete(it.id) }
-
-        // 插入新增预设，不覆盖用户已编辑的预设
-        currentPresets.forEach {
-            foodTemplateDao.insertOrIgnore(it.toEntity())
+    private suspend fun ensurePresetTemplates() = presetMutex.withLock {
+        if (presetsInitialized) return@withLock
+        db.withTransaction {
+            val currentPresets = com.example.nutrition.domain.constants.PresetFoodTemplates.getAll()
+            val currentPresetIds = currentPresets.map { it.id }.toSet()
+            foodTemplateDao.getAll()
+                .filter { it.isPreset && it.id !in currentPresetIds }
+                .forEach { foodTemplateDao.delete(it.id) }
+            // Preserve user edits while supplementing new presets.
+            currentPresets.forEach { foodTemplateDao.insertOrIgnore(it.toEntity()) }
         }
+        // Failed or cancelled initialization remains retryable.
+        presetsInitialized = true
     }
 
     override suspend fun saveFoodTemplate(template: FoodTemplate): Resource<Unit> {
