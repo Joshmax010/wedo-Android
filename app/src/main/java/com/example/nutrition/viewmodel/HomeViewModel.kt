@@ -71,6 +71,7 @@ class HomeViewModel(
         val hasData: Boolean = false,
         val ringPercent: Int = 0,
         val ringCenterText: String = "0",
+        val ringGapLabel: String = "还差",
         val targetCalories: Double = 0.0,
         val macros: List<MacroData> = emptyList(),
         val micros: List<MicroData> = emptyList(),
@@ -130,10 +131,11 @@ class HomeViewModel(
                 } else {
                     0
                 },
-                ringCenterText = when {
-                    gap > 0 -> "+${gap.toInt()}"
-                    gap < 0 -> "${gap.toInt()}"
-                    else -> "0"
+                ringCenterText = kotlin.math.abs(gap).toInt().toString(),
+                ringGapLabel = when {
+                    gap > 0 -> "超出"
+                    gap < 0 -> "还差"
+                    else -> "已达目标"
                 },
                 // 宏量营养素
                 macros = listOf(
