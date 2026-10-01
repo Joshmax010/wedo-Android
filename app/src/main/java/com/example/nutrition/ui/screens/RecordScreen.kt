@@ -131,6 +131,7 @@ fun RecordScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
+            com.example.nutrition.ui.navigation.PageTitle("录入", "按餐记录，按克重换算", modifier = Modifier.padding(horizontal = 16.dp))
             uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
             uiState.templateError?.let { DataLoadError(it, viewModel::loadData) }
             // ========== 餐次 Tab ==========
@@ -841,7 +842,7 @@ private fun FormField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             textStyle = TextStyle(fontSize = 14.sp),
             colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }

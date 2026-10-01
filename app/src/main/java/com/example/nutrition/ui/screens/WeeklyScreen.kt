@@ -85,6 +85,7 @@ fun WeeklyScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
         ) {
+            com.example.nutrition.ui.navigation.PageTitle("周报", "先看这一周的结果", modifier = Modifier.padding(horizontal = 16.dp))
             uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
             // ========== 周切换栏 ==========
             WeekBar(

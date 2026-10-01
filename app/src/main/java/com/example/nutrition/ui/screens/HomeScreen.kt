@@ -1,9 +1,6 @@
 package com.example.nutrition.ui.screens
 
 import android.app.DatePickerDialog
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,23 +20,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,7 +58,6 @@ import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.ui.theme.Warning
 import com.example.nutrition.viewmodel.HomeViewModel
-import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.LocalDate
 
 /**
@@ -98,27 +85,7 @@ fun HomeScreen(
 
     val context = LocalContext.current
 
-    // 列表滚动状态：向下滑动时隐藏 FAB，向上滑动或回到顶部时显示
     val listState = rememberLazyListState()
-    var previousIndex by remember { mutableIntStateOf(0) }
-    var previousScrollOffset by remember { mutableIntStateOf(0) }
-    var fabVisible by remember { mutableStateOf(true) }
-
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .distinctUntilChanged()
-            .collect { (index, offset) ->
-                if (index == 0 && offset == 0) {
-                    fabVisible = true
-                } else if (index > previousIndex || (index == previousIndex && offset > previousScrollOffset)) {
-                    fabVisible = false
-                } else {
-                    fabVisible = true
-                }
-                previousIndex = index
-                previousScrollOffset = offset
-            }
-    }
 
     // 日期选择辅助
     fun showHomeDatePicker() {
@@ -145,6 +112,7 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item { com.example.nutrition.ui.navigation.PageTitle("总览", "查看当天的摄入与目标") }
             uiState.dataError?.let { message ->
                 item { DataLoadError(message, viewModel::loadData) }
             }
@@ -181,7 +149,8 @@ fun HomeScreen(
                     RingCard(
                         percent = uiState.ringPercent.toFloat(),
                         centerText = uiState.ringCenterText,
-                        targetCalories = uiState.targetCalories
+                        targetCalories = uiState.targetCalories,
+                        currentCalories = uiState.meals.sumOf { it.calories }
                     )
                 }
 
@@ -203,6 +172,25 @@ fun HomeScreen(
                                     label = macro.label,
                                     unit = macro.unit,
                                     color = macro.color
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 四餐分布卡片
+                item {
+                    DashboardCard(title = "四餐分布") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.meals.forEach { meal ->
+                                MealCard(
+                                    mealKey = meal.key,
+                                    calories = meal.calories,
+                                    count = meal.count,
+                                    dailyTarget = uiState.targetCalories,
+                                    onClick = { key ->
+                                        onNavigateToRecord(key)
+                                    }
                                 )
                             }
                         }
@@ -242,47 +230,11 @@ fun HomeScreen(
                     }
                 }
 
-                // 四餐分布卡片
+                // 底部间距
                 item {
-                    DashboardCard(title = "四餐分布") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            uiState.meals.forEach { meal ->
-                                MealCard(
-                                    mealKey = meal.key,
-                                    calories = meal.calories,
-                                    count = meal.count,
-                                    dailyTarget = uiState.targetCalories,
-                                    onClick = { key ->
-                                        onNavigateToRecord(key)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 底部间距（给 FAB 让位）
-                item {
-                    Spacer(modifier = Modifier.height(80.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
-        }
-
-        // 悬浮录入按钮，滑动时自动隐藏
-        AnimatedVisibility(
-            visible = fabVisible,
-            enter = slideInVertically { it },
-            exit = slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomEnd)
-        ) {
-            ExtendedFloatingActionButton(
-                onClick = { onNavigateToRecord(null) },
-                modifier = Modifier.padding(16.dp),
-                containerColor = Primary,
-                contentColor = TextInverse,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("录入", fontWeight = FontWeight.SemiBold) }
-            )
         }
 
         // 首次使用引导
@@ -389,7 +341,7 @@ private fun EmptyState(onRecord: () -> Unit) {
         Text(text = "\uD83C\uDF7D\uFE0F", fontSize = 48.sp)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "今天还没有记录",
+            text = "这一天还没有饮食记录",
             fontSize = 16.sp,
             color = TextPlaceholder
         )
@@ -420,7 +372,8 @@ private fun EmptyState(onRecord: () -> Unit) {
 private fun RingCard(
     percent: Float,
     centerText: String,
-    targetCalories: Double
+    targetCalories: Double,
+    currentCalories: Int
 ) {
     DashboardCard {
         Column(
@@ -430,16 +383,20 @@ private fun RingCard(
             RingProgress(
                 percent = percent,
                 centerText = centerText,
-                subText = "kcal 缺口",
-                size = 140.dp
+                subText = when {
+                    percent > 100 -> "kcal · 超出目标"
+                    percent < 100 -> "kcal · 距目标还差"
+                    else -> "kcal · 热量达到目标"
+                },
+                size = 212.dp
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                RingLabel(value = "${percent.toInt()}%", label = "已摄入")
-                RingLabel(value = "${targetCalories.toInt()}", label = "对比目标")
+                RingLabel(value = "${currentCalories} kcal", label = "已摄入 · ${percent.toInt()}%")
+                RingLabel(value = "${targetCalories.toInt()} kcal", label = "每日目标")
             }
         }
     }

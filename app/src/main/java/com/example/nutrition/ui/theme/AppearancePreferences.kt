@@ -1,6 +1,7 @@
 package com.example.nutrition.ui.theme
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,7 +20,7 @@ class AppearancePreferences(context: Context) {
         private set
 
     fun select(mode: ThemeMode) {
-        preferences.edit().putString("theme", mode.name).apply()
+        preferences.edit { putString("theme", mode.name) }
         this.mode = mode
     }
 }

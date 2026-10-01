@@ -27,7 +27,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -103,6 +102,11 @@ fun FoodTemplateScreen(
     Scaffold(
         topBar = {
             Column {
+                com.example.nutrition.ui.navigation.PageTitle("食物模板", "熟悉的食物，更快地录入", modifier = Modifier.padding(horizontal = 16.dp)) {
+                    androidx.compose.material3.IconButton(onClick = { viewModel.openAddDialog() }) {
+                        Icon(Icons.Default.Add, contentDescription = "新增食物模板", tint = Primary)
+                    }
+                }
                 uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
                 SearchBar(
                     query = uiState.searchQuery,
@@ -121,15 +125,7 @@ fun FoodTemplateScreen(
                 )
             }
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.openAddDialog() },
-                containerColor = Primary,
-                contentColor = com.example.nutrition.ui.theme.TextInverse
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "新增模板")
-            }
-        }
+
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -345,7 +341,7 @@ private fun SearchBar(
             singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp),
             colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }
@@ -691,7 +687,7 @@ private fun TemplateFormField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             textStyle = TextStyle(fontSize = 14.sp),
             colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }

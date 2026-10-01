@@ -118,6 +118,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
+            com.example.nutrition.ui.navigation.PageTitle("设置", "管理目标、工具与本地数据")
             uiState.targetsError?.let { DataLoadError(it, viewModel::initialize) }
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -451,7 +452,7 @@ private fun ImportModal(viewModel: SettingsViewModel, uiState: SettingsViewModel
                         },
                         textStyle = TextStyle(fontSize = 13.sp),
                         colors = nutritionFieldColors(),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(12.dp)
                     )
 
                     // 错误提示
@@ -613,7 +614,7 @@ private fun TargetField(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = TextStyle(fontSize = 14.sp),
             colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }
@@ -868,7 +869,7 @@ private fun ProfileNumberField(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = TextStyle(fontSize = 14.sp),
             colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }

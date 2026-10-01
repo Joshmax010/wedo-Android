@@ -107,6 +107,7 @@ fun BodyStatsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            com.example.nutrition.ui.navigation.PageTitle("身体记录", "记录身体变化")
             uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
             uiState.dateError?.let { message -> DataLoadError(message) { viewModel.selectDate(uiState.selectedDate) } }
             // 图表
@@ -284,7 +285,7 @@ private fun BodyFormField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             textStyle = TextStyle(fontSize = 14.sp),
             colors = nutritionFieldColors(),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }

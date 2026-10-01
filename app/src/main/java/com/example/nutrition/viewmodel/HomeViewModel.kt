@@ -119,7 +119,7 @@ class HomeViewModel(
             state.copy(
                 dataError = null,
                 isToday = DateUtils.isToday(dateStr),
-                hasData = dayAgg.calories > 0,
+                hasData = !dayData.isEmpty(),
                 // 二期：代谢计算展示
                 isAutoCalculated = targets.isAutoCalculated,
                 tdee = targets.bodyProfile?.let { MetabolismCalculator.calculateTdee(it) },
@@ -133,7 +133,7 @@ class HomeViewModel(
                 ringCenterText = when {
                     gap > 0 -> "+${gap.toInt()}"
                     gap < 0 -> "${gap.toInt()}"
-                    else -> "${dayAgg.calories}"
+                    else -> "0"
                 },
                 // 宏量营养素
                 macros = listOf(
