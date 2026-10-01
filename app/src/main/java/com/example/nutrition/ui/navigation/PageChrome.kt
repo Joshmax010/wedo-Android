@@ -2,6 +2,7 @@ package com.example.nutrition.ui.navigation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -55,7 +56,7 @@ class PageChrome(private val threshold: Float) {
 
     val scrollConnection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (source == NestedScrollSource.Drag && !editing && !keyboardOpen) {
+            if (source == NestedScrollSource.UserInput && !editing && !keyboardOpen) {
                 if (available.y.sign != distance.sign) distance = 0f
                 distance += available.y
                 if (abs(distance) >= threshold) {
@@ -77,6 +78,8 @@ class PageChrome(private val threshold: Float) {
 }
 
 val LocalPageChrome = staticCompositionLocalOf<PageChrome> { error("Page requires MainScreen") }
+// Insets belong inside each scroll container, so hiding an overlay never resizes its viewport.
+val LocalPageContentPadding = staticCompositionLocalOf { PaddingValues() }
 
 @Composable
 fun PageTitle(
@@ -89,8 +92,12 @@ fun PageTitle(
     val chrome = LocalPageChrome.current
     Column(
         modifier = modifier.fillMaxWidth().onGloballyPositioned {
-            if (trackScroll) chrome.collapsed = it.boundsInRoot().bottom <= chrome.topBarBottom
-        }.padding(vertical = 16.dp),
+            if (trackScroll) {
+                val bounds = it.boundsInRoot()
+                chrome.collapsed = bounds.bottom <= chrome.topBarBottom
+                if (bounds.top >= chrome.topBarBottom) chrome.visible = true
+            }
+        }.padding(top = 4.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
