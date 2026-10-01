@@ -305,7 +305,7 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
 ### 7.3 运行测试
 
 - 单元测试位于 `app/src/test/java/...`。
-- 测试文件：`DateUtilsTest.kt`、`CalculatorTest.kt`、`BackupManagerTest.kt`、`InteropTest.kt`（共 106 个用例）。
+- 基础测试文件：`DateUtilsTest.kt`、`CalculatorTest.kt`、`BackupManagerTest.kt`、`InteropTest.kt`（106 个原有用例）；本轮新增备份读取保护及 ViewModel 测试，目前共 121 个 JVM 用例。
 - 当前测试运行需要 JDK 17 + Gradle 环境。
 
 **已知环境限制**：由于项目路径包含中文及空格（`D:\AAAAA\ai\wedo\健身wedo-android`），直接通过命令行执行 `:app:testDebugUnitTest` 会导致 Gradle Test Worker 在 Windows 上加载测试类时抛出 `ClassNotFoundException`。已在 Gradle 8.13 与 9.4.1 上分别复现，属 Gradle Test Worker 进程路径编码的已知缺陷，非代码问题。
@@ -323,7 +323,7 @@ export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Do
    export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=C:/Users/sunyu/AppData/Local/Temp -Dorg.sqlite.tmpdir=C:/Users/sunyu/AppData/Local/Temp"
    ./gradlew :app:testDebugUnitTest
    ```
-   v1.4.3 历史验证结果（Gradle 8.13 与 9.4.1 均已验证）：106 tests, 0 failures。本轮新增测试未在云端执行，见 §7.5。
+   v1.4.3 历史验证结果（Gradle 8.13 与 9.4.1 均已验证）：106 tests, 0 failures。本轮 121 个 JVM 用例已通过 GitHub Actions 云端验证，见 §7.5。
 
 ### 7.4 Instrumentation 测试（androidTest）
 
@@ -338,11 +338,11 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 .\gradlew.bat :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.example.nutrition.data.repository.RoomLocalStorageRepositoryTest"
 ```
 
-上述新增用例待本地 Android 环境执行；云端仅进行源码与差异检查，不搭建 Android 构建或设备环境。原有单元测试也应在本地按 §7.3 回归。
+上述 Room 设备用例留待你本地 Android 设备执行。云端按当前要求完成主代码编译、JVM 单元测试和 Lint，未安排 APK 打包或设备测试，结果见 §7.5。
 
 ### 7.5 本轮底层优化的统一回归
 
-完整拉取、编译、设备测试命令和手工检查项见 [`LOCAL_REGRESSION_CHECKLIST.md`](./LOCAL_REGRESSION_CHECKLIST.md)。源码共新增 15 个 JVM 用例和 14 个 Room 设备用例；121/38 是当前源码中的用例数量，并非本轮执行或通过结果。应用仍为 1.4.3，数据库仍为 v4，备份 Schema 仍为 v3；本轮修改在功能分支上等待本地验证。
+完整拉取、编译、设备测试命令和手工检查项见 [`LOCAL_REGRESSION_CHECKLIST.md`](./LOCAL_REGRESSION_CHECKLIST.md)。本轮新增 15 个 JVM 用例和 14 个 Room 设备用例。2026-10-01 已通过 GitHub Actions 验证主代码编译、全部 121 个 JVM 用例（零失败/错误/跳过）及 Lint（零错误，40 条原有警告）；38 个 Room 设备用例仍待本地执行。完整日志、测试明细及验证提交见 [`CLOUD_VALIDATION.md`](./CLOUD_VALIDATION.md)。应用仍为 1.4.3，数据库仍为 v4，备份 Schema 仍为 v3。
 
 ---
 
@@ -362,6 +362,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 新增云端 CI：主代码编译、121 个 JVM 用例与 Lint 全部通过；按要求不打包 APK、不执行设备测试。修复验证中发现的原有 API 27 导航栏主题属性兼容问题，公共主题继承、版本资源保护；保留最低 API 26。报告独立归档，验证详情见 `CLOUD_VALIDATION.md`。 | `.github/workflows/cloud-tests.yml`、`res/values/themes.xml`、`res/values-v27/themes.xml`、验证与维护文档 |
 | 待发布 | 基于 1.4.3 | 整体审查：延迟读取按字段合并，保留新输入并补齐未编辑的原有目标/身体字段；首页元信息错误独立提示，日期/餐次切换及时移除上一视图记录，读取失败后可恢复。新增 4 个读取状态和取消单元用例，补充统一回归清单及验证状态说明（全部新增用例待本地执行）。 | 相关 ViewModel、Screen、单元测试、`LOCAL_REGRESSION_CHECKLIST.md`、维护文档 |
 | 待发布 | 基于 1.4.3 | 页面状态与提示按生命周期收集；恢复录入页、设置页时保留未保存表单，异步读取/保存不覆盖较新的输入，身体记录取消旧日期读取，周报持续观察记录和目标变化。新增 8 个表单与异步状态单元用例（待本地执行）。 | `ui/screens/`、相关 ViewModel 与单元测试 |
 | 待发布 | 基于 1.4.3 | 预设模板按仓库生命周期初始化一次，互斥与事务保护并发初始化、失败可重试；录入页补全复用已有模板状态，不再重复订阅仓库。新增 3 个初始化设备用例与 1 个订阅单元用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`RecordViewModel.kt`、相关测试 |

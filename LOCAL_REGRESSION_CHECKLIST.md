@@ -2,7 +2,7 @@
 
 本轮为预防性的可靠性和状态管理优化，目前没有用户反馈导入故障。正常使用的视觉变化应很小，主要收益是并发、失败、取消和页面恢复时的数据一致性。
 
-代码位于 `codex/atomic-backup-import`，每项优化分别提交。应用版本仍为 1.4.3（versionCode 5），Room 数据库仍为 v4，备份 Schema 仍为 v3；本轮没有新增数据库迁移、网络权限或云端 Android 配置。
+代码位于 `codex/atomic-backup-import`，每项优化分别提交。应用版本仍为 1.4.3（versionCode 5），Room 数据库仍为 v4，备份 Schema 仍为 v3；本轮没有新增数据库迁移或应用网络权限。云端代码检查已通过，完整结果见 [云端验证记录](./CLOUD_VALIDATION.md)。
 
 ## 拉取与构建
 
@@ -14,13 +14,13 @@ Windows PowerShell，在仓库根目录执行：
 git fetch origin
 git switch codex/atomic-backup-import
 git pull --ff-only
-git log --oneline -6
-.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+git log --oneline -12
+.\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug
 ```
 
 首次使用该功能分支时，`git switch` 可自动跟踪同名远程分支；如存在多个同名远程分支，使用 `git switch --track origin/codex/atomic-backup-import`。
 
-连接已开启 USB 调试的 Android 设备后：
+设备检查由你后续自行进行，可通过 Android Studio 运行应用，或连接已开启 USB 调试的 Android 设备后执行：
 
 ```powershell
 .\gradlew.bat :app:connectedDebugAndroidTest
@@ -43,9 +43,9 @@ JVM 报告：`app/build/reports/tests/testDebugUnitTest/index.html`。设备报�
 | 读取失败与协程取消处理 | `0c87862` | Room 2 个：损坏 JSON 不能伪装为空记录，后续新增不能覆盖损坏行；JVM 2 个：失败不导出部分备份，取消继续传播 |
 | 预设初始化与模板订阅 | `d6ddb25` | Room 3 个：并发只初始化一次、保留用户修改、失败回滚后重试；JVM 1 个：补全只订阅一次且响应模板编辑 |
 | 生命周期与未保存表单 | `2089622` | JVM 8 个：录入草稿恢复、保存期间新输入、设置页重复进入/延迟读取/失败重试、身体记录读取/日期切换、周报实时更新 |
-| 整体审查补充 | 本清单所在提交 | JVM 4 个：切换日期清除旧列表、读取失败恢复、操作错误反馈、取消不误报；强化延迟读取用例，验证未编辑字段被补齐 |
+| 整体审查补充 | `0de7ebc` | JVM 4 个：切换日期清除旧列表、读取失败恢复、操作错误反馈、取消不误报；强化延迟读取用例，验证未编辑字段被补齐 |
 
-源码总计 121 个 JVM 用例、38 个 Room 设备用例，本轮分别新增 15 和 14 个。**这些是源码统计，不是本轮通过结果。** 云端未安装 Android 工具链，未运行 Gradle 编译、JVM 测试或设备测试；已完成源码审查、差异格式检查和 Kotlin 源码括号配对静态检查。
+源码总计 121 个 JVM 用例、38 个 Room 设备用例，本轮分别新增 15 和 14 个。**121 个 JVM 用例已在 GitHub Actions 全部通过，零失败、零错误、零跳过；主代码编译与 Lint 也已通过。** 本轮云端未打包 APK，未执行真机/模拟器测试；38 个 Room 设备用例仍待你本地执行。详见 [云端验证记录](./CLOUD_VALIDATION.md)。
 
 设备用例通过内存数据库和测试专用触发器模拟失败，不会修改应用的持久化数据库；无需人为损坏真实用户数据。
 
