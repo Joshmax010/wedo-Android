@@ -107,6 +107,7 @@ fun HomeScreen(
     Box(modifier = Modifier.fillMaxSize().background(BgMain)) {
         LazyColumn(
             state = listState,
+            contentPadding = com.example.nutrition.ui.navigation.LocalPageContentPadding.current,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
@@ -149,6 +150,7 @@ fun HomeScreen(
                     RingCard(
                         percent = uiState.ringPercent.toFloat(),
                         centerText = uiState.ringCenterText,
+                        gapLabel = uiState.ringGapLabel,
                         targetCalories = uiState.targetCalories,
                         currentCalories = uiState.meals.sumOf { it.calories }
                     )
@@ -372,6 +374,7 @@ private fun EmptyState(onRecord: () -> Unit) {
 private fun RingCard(
     percent: Float,
     centerText: String,
+    gapLabel: String,
     targetCalories: Double,
     currentCalories: Int
 ) {
@@ -383,11 +386,7 @@ private fun RingCard(
             RingProgress(
                 percent = percent,
                 centerText = centerText,
-                subText = when {
-                    percent > 100 -> "kcal · 超出目标"
-                    percent < 100 -> "kcal · 距目标还差"
-                    else -> "kcal · 热量达到目标"
-                },
+                subText = "kcal · $gapLabel",
                 size = 212.dp
             )
             Spacer(modifier = Modifier.height(16.dp))
