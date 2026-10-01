@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.model.ActivityLevel
@@ -527,20 +526,5 @@ class SettingsViewModel(
 
     fun dismissClear() {
         _uiState.update { it.copy(showClearConfirm = false) }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(
-        private val repository: LocalStorageRepository,
-        private val backupManager: BackupManager
-    ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return SettingsViewModel(repository, backupManager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

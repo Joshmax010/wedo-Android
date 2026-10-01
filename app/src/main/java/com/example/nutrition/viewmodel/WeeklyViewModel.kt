@@ -1,7 +1,6 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.repository.LocalStorageRepository
@@ -190,17 +189,5 @@ class WeeklyViewModel(
 
     companion object {
         private val DAY_NAMES = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(WeeklyViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return WeeklyViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

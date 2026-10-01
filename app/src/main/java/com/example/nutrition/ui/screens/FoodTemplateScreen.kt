@@ -54,6 +54,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.ui.theme.BgCard
@@ -74,7 +76,9 @@ import com.example.nutrition.viewmodel.UIEvent
 @Composable
 fun FoodTemplateScreen(
     viewModel: FoodTemplateViewModel = viewModel(
-        factory = FoodTemplateViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { FoodTemplateViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current

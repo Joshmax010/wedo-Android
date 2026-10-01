@@ -50,6 +50,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.MealKey
 import com.example.nutrition.domain.usecase.DateUtils
@@ -79,7 +81,9 @@ import java.time.LocalDate
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { HomeViewModel(NutritionApp.instance.repository) }
+        }
     ),
     onNavigateToRecord: (MealKey?) -> Unit = {}
 ) {

@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.ui.charts.CaloriesLineChart
 import com.example.nutrition.ui.charts.NutrientBarChart
@@ -59,7 +61,9 @@ import kotlin.math.min
 @Composable
 fun WeeklyScreen(
     viewModel: WeeklyViewModel = viewModel(
-        factory = WeeklyViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { WeeklyViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val context = LocalContext.current

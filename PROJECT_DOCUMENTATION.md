@@ -113,7 +113,7 @@ Room Database
    备份导入的 `bulkSet` 将五张表的写入与现有回读校验放在同一个 Room 事务中；任何写入或校验失败都回滚本次导入，协程取消继续向上传播。
 6. **业务逻辑下沉 UseCase**：单位换算（`UnitConverter`）、表单校验（`MealFormValidator`/`BodyStatsValidator`）、模板换算（`FoodTemplateMapper`）等纯逻辑放在 domain/usecase，ViewModel 只做编排。
 7. **类型安全导航**：使用 navigation-compose 2.8+ 的 @Serializable 路由对象（`AppRoutes.kt`），页面间传参编译期可查；`MainScreen` 底栏选中态用 `NavDestination.hasRoute<T>()` 判断。
-8. **单例 Repository**：`NutritionApp` 中以 `lazy` 方式持有 Repository 单例，通过 `NutritionApp.instance` 在 ViewModel 中获取。
+8. **单例 Repository**：`NutritionApp` 中以 `lazy` 方式持有 Repository 单例，页面通过 AndroidX 的 `viewModelFactory { initializer { ... } }` 将仓库传入 ViewModel，复用导航作用域内的 ViewModel。
 9. **生命周期刷新**：使用 `DisposableEffect + LifecycleEventObserver` 监听 `ON_RESUME`，实现从其他页面返回时自动刷新；录入页以 `isFirstResume` 标记跳过首次 resume，避免覆盖导航传入的初始餐次。
 
 ---
@@ -359,6 +359,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 代码清理：六个页面使用 AndroidX 内置 `viewModelFactory`/`initializer` 创建 ViewModel，删除重复的自定义 Factory、类型判断与未检查强制转换。保留构造参数、ViewModel 作用域及所有页面布局，不引入新封装或依赖。 | 六个 `ViewModel.kt`、对应 `Screen.kt` 与维护文档 |
 | 待发布 | 基于 1.4.3 | 代码清理：209 条食物预设改用紧凑声明，共同字段集中构造。固定 ID、顺序、营养值、标签与默认字段保持一致；清理前后实际 Kotlin 对象逐项比较通过（仅忽略初始化时生成的时间戳）。预设源码由 2526 行减至 247 行。 | `domain/constants/PresetFoodTemplates.kt` |
 | 待发布 | 基于 1.4.3 | 代码清理：删除未调用的 DataStore 封装、Application 入口与依赖，删除未使用的间距/圆角/快捷字号常量及空页面占位文件。引导状态仍由 Room 元信息保存；页面布局、数据库与备份格式保持不变。同步 README 测试数量及架构说明。 | `app/build.gradle.kts`、`NutritionApp.kt`、`data/local/prefs/`、`ui/theme/`、`ui/screens/`、README 与维护文档 |
 | 待发布 | 基于 1.4.3 | 新增云端 CI：主代码编译、121 个 JVM 用例与 Lint 全部通过；按要求不打包 APK、不执行设备测试。修复验证中发现的原有 API 27 导航栏主题属性兼容问题，公共主题继承、版本资源保护；保留最低 API 26。报告独立归档，验证详情见 `CLOUD_VALIDATION.md`。 | `.github/workflows/cloud-tests.yml`、`res/values/themes.xml`、`res/values-v27/themes.xml`、验证与维护文档 |

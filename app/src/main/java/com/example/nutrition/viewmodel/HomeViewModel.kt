@@ -2,7 +2,6 @@ package com.example.nutrition.viewmodel
 
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.model.DayRecords
@@ -209,18 +208,6 @@ class HomeViewModel(
             val next = DateUtils.nextDay(state.currentDate)
             // 不超过今天
             if (next <= DateUtils.today()) state.copy(currentDate = next) else state
-        }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

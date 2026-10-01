@@ -47,6 +47,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.ActivityLevel
 import com.example.nutrition.domain.model.Gender
@@ -73,10 +75,11 @@ fun SettingsScreen(
     onNavigateToTemplates: () -> Unit = {},
     onNavigateToBodyStats: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.Factory(
-            NutritionApp.instance.repository,
-            NutritionApp.instance.backupManager
-        )
+        factory = viewModelFactory {
+            initializer {
+                SettingsViewModel(NutritionApp.instance.repository, NutritionApp.instance.backupManager)
+            }
+        }
     )
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current

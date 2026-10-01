@@ -1,7 +1,6 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.Resource
@@ -282,18 +281,6 @@ class FoodTemplateViewModel(
                 newTagInput = "",
                 editingId = null
             )
-        }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(FoodTemplateViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return FoodTemplateViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

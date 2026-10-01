@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.MealKey
@@ -77,7 +79,9 @@ import java.time.LocalDate
 fun RecordScreen(
     initialMeal: MealKey? = null,
     viewModel: RecordViewModel = viewModel(
-        factory = RecordViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { RecordViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val context = LocalContext.current

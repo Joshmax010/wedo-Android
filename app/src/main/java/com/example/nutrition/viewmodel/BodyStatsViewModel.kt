@@ -1,7 +1,6 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.model.BodyRecord
 import com.example.nutrition.domain.model.Resource
@@ -183,17 +182,5 @@ class BodyStatsViewModel(
 
     fun dismissDelete() {
         _uiState.update { it.copy(deleteDate = null) }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(BodyStatsViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return BodyStatsViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

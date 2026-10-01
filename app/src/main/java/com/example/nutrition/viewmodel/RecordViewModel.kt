@@ -1,7 +1,6 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.model.FoodTemplate
@@ -650,16 +649,4 @@ class RecordViewModel(
         baseFormMicronutrients = emptyList(),
         editingId = null
     )
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(RecordViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return RecordViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
 }

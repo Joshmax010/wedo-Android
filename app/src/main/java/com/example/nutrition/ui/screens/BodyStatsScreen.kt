@@ -44,6 +44,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.BodyRecord
 import com.example.nutrition.domain.usecase.DateUtils
@@ -67,7 +69,9 @@ import java.time.LocalDate
 @Composable
 fun BodyStatsScreen(
     viewModel: BodyStatsViewModel = viewModel(
-        factory = BodyStatsViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { BodyStatsViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
