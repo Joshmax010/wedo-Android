@@ -88,7 +88,7 @@ fun FoodTemplateScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 16.dp)
+            contentPadding = com.example.nutrition.ui.navigation.LocalPageContentPadding.current
         ) {
             item {
                 Column {
