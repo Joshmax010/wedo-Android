@@ -20,6 +20,11 @@ import com.example.nutrition.domain.model.MealRecord
 import com.example.nutrition.domain.model.MicronutrientTarget
 import com.example.nutrition.domain.model.NutritionTargets
 import com.example.nutrition.domain.model.Resource
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -287,6 +292,47 @@ class RoomLocalStorageRepositoryTest {
         assertTrue(allRecords.containsKey("2026-06-29"))
         assertTrue(allRecords.containsKey("2026-06-30"))
         assertTrue(allRecords.containsKey("2026-07-01"))
+    }
+
+    private suspend fun runConcurrentWrites(actions: List<suspend () -> Resource<Unit>>) = coroutineScope {
+        val gate = CompletableDeferred<Unit>()
+        val jobs = actions.map { action ->
+            async(Dispatchers.Default) { gate.await(); action() }
+        }
+        gate.complete(Unit)
+        jobs.awaitAll().forEach { assertTrue(it is Resource.Success) }
+    }
+
+    @Test
+    fun addRecord_并发新增保留全部记录() = runTest {
+        val records = (1..40).map { sampleRecord(name = "并发记录$it") }
+        runConcurrentWrites(records.map { record ->
+            suspend { repo.addRecord("2026-06-30", MealKey.LUNCH, record) }
+        })
+        assertEquals(records.map { it.id }.toSet(), repo.getDayRecords("2026-06-30").first().lunch.map { it.id }.toSet())
+    }
+
+    @Test
+    fun updateRecord_并发编辑不同记录不覆盖彼此() = runTest {
+        val records = (1..10).map { sampleRecord(name = "记录$it") }
+        assertTrue(repo.setDayRecords("2026-06-30", DayRecords("2026-06-30", lunch = records)) is Resource.Success)
+        runConcurrentWrites(records.map { record ->
+            suspend { repo.updateRecord("2026-06-30", MealKey.LUNCH, record.id, record.copy(name = "已编辑${record.name}")) }
+        })
+        val loaded = repo.getDayRecords("2026-06-30").first().lunch
+        assertEquals(records.map { it.id }.toSet(), loaded.map { it.id }.toSet())
+        assertEquals(records.map { "已编辑${it.name}" }.toSet(), loaded.map { it.name }.toSet())
+        records.forEach { original -> assertEquals(original.createdAt, loaded.single { it.id == original.id }.createdAt) }
+    }
+
+    @Test
+    fun deleteRecord_并发删除不同记录不恢复已删除项() = runTest {
+        val records = (1..10).map { sampleRecord(name = "记录$it") }
+        assertTrue(repo.setDayRecords("2026-06-30", DayRecords("2026-06-30", lunch = records)) is Resource.Success)
+        runConcurrentWrites(records.dropLast(1).map { record ->
+            suspend { repo.deleteRecord("2026-06-30", MealKey.LUNCH, record.id) }
+        })
+        assertEquals(listOf(records.last()), repo.getDayRecords("2026-06-30").first().lunch)
     }
 
     // ==================== 元信息测试 ====================

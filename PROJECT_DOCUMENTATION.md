@@ -358,6 +358,7 @@ Windows 本地连接调试设备后，可单独运行仓库集成测试：
 
 | 日期 | 版本 | 变更内容 | 涉及文件 |
 |------|------|----------|----------|
+| 待发布 | 基于 1.4.3 | 饮食记录新增、编辑和删除采用事务内读改写，避免同一天并发操作覆盖彼此；保留记录 ID 与创建时间，新增 3 个并发 Room 回归用例（待本地执行）。 | `RoomLocalStorageRepository.kt`、`RoomLocalStorageRepositoryTest.kt` |
 | 待发布 | 基于 1.4.3 | 预防性底层优化：备份导入的五表写入与现有回读校验纳入同一 Room 事务，写入或校验失败时全部回滚，取消继续传播；保留原有导入规则与错误提示。新增 6 个 Room 集成回归用例（待本地执行）。目前无用户导入故障反馈，未调整应用版本、数据库结构或备份格式。 | `data/repository/RoomLocalStorageRepository.kt`、`domain/repository/LocalStorageRepository.kt`、`androidTest/.../RoomLocalStorageRepositoryTest.kt` |
 | 2026-09-04 | 1.4.3 | README 正式化与版权署名修正：① README 重写为开源项目标准结构——徽章行（Release/平台/Kotlin/Compose/无网络/MIT）、下载安装表、校验信息折叠块、功能按「记录/分析/数据」分组、技术栈表补测试行、新增项目结构树（71 个 Kotlin 源文件）、构建与签名配置说明（折叠）、已知限制指引 §7.3、维护状态章节，中英双语镜像；② `LICENSE` 版权行由系统用户名 `sunyu` 修正为 GitHub 身份 `Joshmax010`；③ Release v1.4.3 已发布至 GitHub（资产 `wedo-fitness-v1.4.3.apk`，2,338,132 字节），tag 指向 `6a69987`，下载回环校验哈希与签名均一致。 | `README.md`, `LICENSE` |
 | 2026-09-04 | 1.4.3 | 品牌名统一与发布准备：① 产品名全面统一为「健身wedo / wedo Fitness」（与微信小程序及 `strings.xml` 中 `app_name` 一致），文档旧名「营养记录器」全部替换；② 新增发布签名配置——`keystore.properties` 读取本地密钥（已被 .gitignore 排除，文件缺失时自动退化为 unsigned 构建），release 构建产出正式签名 APK（v2/v3），并附 SHA-256 校验值；③ README 改为中文优先、双语结构，标题与英文段落均同步新品牌名。 | `README.md`, `PROJECT_DOCUMENTATION.md`, `app/build.gradle.kts`, `.gitignore`, `keystore.properties`(*) |

@@ -109,12 +109,15 @@ class RoomLocalStorageRepository(
         record: MealRecord
     ): Resource<Unit> {
         return try {
-            val dayData = getDayRecords(dateStr).first()
-            val updatedDay = dayData.withMeal(
-                mealKey,
-                dayData.getMeal(mealKey) + record
-            )
-            setDayRecords(dateStr, updatedDay)
+            db.withTransaction {
+                val dayData = recordDao.getByDate(dateStr)?.toDomain() ?: DayRecords(dateStr = dateStr)
+                val updatedDay = dayData.withMeal(mealKey, dayData.getMeal(mealKey) + record)
+                recordDao.insert(updatedDay.toEntity(dateStr))
+                check(verifyDayRecordWrite(dateStr))
+                Resource.Success(Unit)
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
@@ -127,41 +130,44 @@ class RoomLocalStorageRepository(
         newData: MealRecord
     ): Resource<Unit> {
         return try {
-            val dayData = getDayRecords(dateStr).first()
-            val mealRecords = dayData.getMeal(mealKey)
-            val index = mealRecords.indexOfFirst { it.id == recordId }
-            if (index == -1) return Resource.Error("记录不存在或已被删除")
-
-            val updated = newData.copy(
-                id = recordId,
-                createdAt = mealRecords[index].createdAt,
-                updatedAt = Instant.now().toString()
-            )
-            val newMealRecords = mealRecords.toMutableList().apply {
-                set(index, updated)
+            db.withTransaction {
+                val dayData = recordDao.getByDate(dateStr)?.toDomain() ?: DayRecords(dateStr = dateStr)
+                val mealRecords = dayData.getMeal(mealKey)
+                val index = mealRecords.indexOfFirst { it.id == recordId }
+                if (index == -1) return@withTransaction Resource.Error("记录不存在或已被删除")
+                val updated = newData.copy(
+                    id = recordId,
+                    createdAt = mealRecords[index].createdAt,
+                    updatedAt = Instant.now().toString()
+                )
+                val newMealRecords = mealRecords.toMutableList().apply { set(index, updated) }
+                val updatedDay = dayData.withMeal(mealKey, newMealRecords)
+                recordDao.insert(updatedDay.toEntity(dateStr))
+                check(verifyDayRecordWrite(dateStr))
+                Resource.Success(Unit)
             }
-            val updatedDay = dayData.withMeal(mealKey, newMealRecords)
-            setDayRecords(dateStr, updatedDay)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
     }
 
-    override suspend fun deleteRecord(
-        dateStr: String,
-        mealKey: MealKey,
-        recordId: String
-    ): Resource<Unit> {
+    override suspend fun deleteRecord(dateStr: String, mealKey: MealKey, recordId: String): Resource<Unit> {
         return try {
-            val dayData = getDayRecords(dateStr).first()
-            val mealRecords = dayData.getMeal(mealKey)
-            val filtered = mealRecords.filter { it.id != recordId }
-            if (filtered.size == mealRecords.size) {
-                return Resource.Error("记录不存在或已被删除")
+            db.withTransaction {
+                val dayData = recordDao.getByDate(dateStr)?.toDomain() ?: DayRecords(dateStr = dateStr)
+                val mealRecords = dayData.getMeal(mealKey)
+                val filtered = mealRecords.filter { it.id != recordId }
+                if (filtered.size == mealRecords.size) {
+                    return@withTransaction Resource.Error("记录不存在或已被删除")
+                }
+                recordDao.insert(dayData.withMeal(mealKey, filtered).toEntity(dateStr))
+                check(verifyDayRecordWrite(dateStr))
+                Resource.Success(Unit)
             }
-
-            val updatedDay = dayData.withMeal(mealKey, filtered)
-            setDayRecords(dateStr, updatedDay)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("删除失败，请重试")
         }
