@@ -11,6 +11,7 @@ import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.Calculator
 import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.domain.usecase.MetabolismCalculator
+import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.theme.CarbsColor
 import com.example.nutrition.ui.theme.FatColor
 import com.example.nutrition.ui.theme.ProteinColor
@@ -131,7 +132,7 @@ class HomeViewModel(
                 } else {
                     0
                 },
-                ringCenterText = kotlin.math.abs(gap).toInt().toString(),
+                ringCenterText = UnitConverter.formatForInput(kotlin.math.abs(gap)),
                 ringGapLabel = when {
                     gap > 0 -> "超出"
                     gap < 0 -> "还差"

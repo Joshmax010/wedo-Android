@@ -113,11 +113,15 @@ fun PageTitle(
 @Composable
 fun formRevealModifier(request: Int): Modifier {
     val requester = remember { BringIntoViewRequester() }
-    val headingHeight = with(LocalDensity.current) { 120.dp.toPx() }
-    LaunchedEffect(request) {
+    val density = LocalDensity.current
+    val headingHeight = with(density) { 120.dp.toPx() }
+    val topPadding = LocalPageContentPadding.current.calculateTopPadding()
+    val topInset = with(density) { topPadding.toPx() }
+    LaunchedEffect(request, topInset) {
         if (request > 0) {
             withFrameNanos { }
-            requester.bringIntoView(Rect(0f, 0f, 1f, headingHeight))
+            // Include the toolbar clearance: it overlays the scroll viewport.
+            requester.bringIntoView(Rect(0f, -topInset, 1f, headingHeight))
         }
     }
     return Modifier.bringIntoViewRequester(requester)

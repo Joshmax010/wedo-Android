@@ -69,4 +69,32 @@ class HomeViewModelTest {
         assertEquals("1", viewModel.uiState.value.ringCenterText)
         assertEquals("超出", viewModel.uiState.value.ringGapLabel)
     }
+
+    @Test fun fractionalExcessKeepsAmountAndDirection() = runTest {
+        for ((calories, amount) in listOf(2001.0 to "0.5", 2002.0 to "1.5")) {
+            val repository = BackupManagerTest.FakeRepository()
+            val today = DateUtils.today()
+            repository.setTargets(NutrientConstants.getDefaultTargets().copy(calories = 2000.5))
+            repository.setDayRecords(today, DayRecords(today, lunch = listOf(MealRecord(calories = calories))))
+            val viewModel = HomeViewModel(repository)
+            store.put("home", viewModel)
+            runCurrent()
+            assertEquals(amount, viewModel.uiState.value.ringCenterText)
+            assertEquals("超出", viewModel.uiState.value.ringGapLabel)
+        }
+    }
+
+    @Test fun fractionalRemainingKeepsAmountAndDirection() = runTest {
+        for ((calories, amount) in listOf(2000.0 to "0.5", 1999.0 to "1.5")) {
+            val repository = BackupManagerTest.FakeRepository()
+            val today = DateUtils.today()
+            repository.setTargets(NutrientConstants.getDefaultTargets().copy(calories = 2000.5))
+            repository.setDayRecords(today, DayRecords(today, lunch = listOf(MealRecord(calories = calories))))
+            val viewModel = HomeViewModel(repository)
+            store.put("home", viewModel)
+            runCurrent()
+            assertEquals(amount, viewModel.uiState.value.ringCenterText)
+            assertEquals("还差", viewModel.uiState.value.ringGapLabel)
+        }
+    }
 }
