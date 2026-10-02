@@ -53,14 +53,14 @@ apksigner verify --print-certs wedo-fitness-v1.4.3.apk
 ### 分析
 
 - **代谢计算** — 填写身体档案（性别 / 年龄 / 身高 / 体重 / 活动量），按 Mifflin-St Jeor 公式计算 BMR 与 TDEE，一键套用推荐宏量目标
-- **目标对比** — 首页概览展示当日热量与三大营养素完成度
+- **目标对比** — 首页概览展示当日热量与三大营养素完成度；热量差值以非负数和「还差 / 超出 / 已达目标」表达，保留必要小数
 - **每周统计** — 7 日趋势折线图与营养素柱状图（自绘 Canvas 实现）、达标率与热量缺口汇总，支持一键复制周报文本
 - **身体记录** — 体重 / 体脂率 / 肌肉量历史与趋势图
 
 ### 外观
 
 - **主题选择** — 支持跟随系统、浅色与深色，保存本机偏好；深色主文字为白色，浅色页面背景为纯白
-- **浏览与编辑** — 滚动时收起上下导航，反向滑动恢复；历史记录回填同一表单并自动定位，设置使用分组子页
+- **浏览与编辑** — 主页面滚动时收起上下导航，反向滑动恢复；设置子页仅保留返回顶栏；历史记录回填同一表单并定位到顶栏下方
 - **完成反馈** — 普通保存轻提示；今日主动饮食保存后首次满足全天目标时短暂庆祝
 
 ### 数据
@@ -79,7 +79,7 @@ apksigner verify --print-certs wedo-fitness-v1.4.3.apk
 | 存储 | Room 2.8.4（读操作返回 `Flow`，写操作返回 `Resource<Unit>`） |
 | 序列化 | kotlinx.serialization 1.6.3 |
 | 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.2 |
-| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（136 个单元测试）＋ Room instrumentation 测试 |
+| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（143 个单元测试）＋ Room instrumentation 测试 |
 
 最低支持 Android 8.0（API 26），targetSdk / compileSdk 34。
 
@@ -196,7 +196,7 @@ Verify the download: SHA-256 `119b0fe5be6c95ae4283b6d3e74bbb8a7833bbd81184ef3df6
 
 ### Tech Stack
 
-Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 136 unit tests.
+Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 143 unit tests.
 
 ### Build
 
