@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.ui.navigation.PageChromeTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-02T11:11:49.405Z" hostname="runnervm8df0l" time="0.02">
+  <properties/>
+  <testcase name="smallDirectionChangesDoNotFlickerNavigation" classname="com.example.nutrition.ui.navigation.PageChromeTest" time="0.018"/>
+  <testcase name="navigationVisibilityDoesNotConsumeContentScroll" classname="com.example.nutrition.ui.navigation.PageChromeTest" time="0.0"/>
+  <testcase name="editingAndKeyboardKeepNavigationAvailable" classname="com.example.nutrition.ui.navigation.PageChromeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

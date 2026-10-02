@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.domain.usecase.InteropTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-02T11:11:49.374Z" hostname="runnervm8df0l" time="0.029">
+  <properties/>
+  <testcase name="Calculator 聚合结果与小程序数值一致" classname="com.example.nutrition.domain.usecase.InteropTest" time="0.001"/>
+  <testcase name="缺少微量营养素的 JSON 仍可导入" classname="com.example.nutrition.domain.usecase.InteropTest" time="0.007"/>
+  <testcase name="Android 导出再导入 roundtrip 数据一致" classname="com.example.nutrition.domain.usecase.InteropTest" time="0.009"/>
+  <testcase name="小程序格式 JSON 导入后数据一致" classname="com.example.nutrition.domain.usecase.InteropTest" time="0.011"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

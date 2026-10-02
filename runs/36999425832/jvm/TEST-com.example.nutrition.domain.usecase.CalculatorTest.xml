@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.domain.usecase.CalculatorTest" tests="35" skipped="0" failures="0" errors="0" timestamp="2026-10-02T11:11:49.228Z" hostname="runnervm8df0l" time="0.08">
+  <properties/>
+  <testcase name="calcGap - 保留一位小数" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.004"/>
+  <testcase name="aggregateMeal - 单条记录" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="aggregateDay - 微量营养素跨餐次汇总" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.005"/>
+  <testcase name="aggregateMeal - 热量取整" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.003"/>
+  <testcase name="aggregateDay - 全天空数据" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcAchievementRate - 保留一位小数" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="aggregateMeal - 多条记录汇总" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.004"/>
+  <testcase name="calcAchievementRate - 超大值" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="aggregateMeal - 部分记录有零值字段" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcWeekSummary - 全部空数据" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.002"/>
+  <testcase name="calcAchievementRate - 完全达标" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcWeekSummary - 营养素达标率列表包含四项" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcAchievementRate - 摄入为零" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="aggregateMeal - 微量营养素汇总" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.002"/>
+  <testcase name="generateWeekReportText - 空微量营养素也不报错" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.009"/>
+  <testcase name="calcGap - 刚好达标" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="aggregateMeal - 空列表返回零值" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="generateWeekReportText - 包含全部关键字段" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.012"/>
+  <testcase name="aggregateDay - 只有早餐有数据" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="calcGap - 缺口为负" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcWeekSummary - 热量缺口计算正确" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="aggregateDay - 四餐汇总" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="calcGap - 超量为正" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="calcWeekSummary - 达标天数边界判定" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="aggregateMeal - 大数值累加不溢出" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.012"/>
+  <testcase name="calcAchievementRate - 50 百分比" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="aggregateMeal - 蛋白质保留一位小数" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcWeekSummary - 日均计算正确" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="calcGap - 零减零" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcAchievementRate - 目标为零返回 0" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="calcWeekSummary - 微量营养素表格正确" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="aggregateWeek - 部分天有数据" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <testcase name="calcAchievementRate - 超量 150 百分比" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.003"/>
+  <testcase name="calcWeekSummary - 每天达标热量" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.0"/>
+  <testcase name="aggregateWeek - 空数据返回 7 个零值天" classname="com.example.nutrition.domain.usecase.CalculatorTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
