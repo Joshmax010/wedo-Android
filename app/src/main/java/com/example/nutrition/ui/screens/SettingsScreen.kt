@@ -99,6 +99,10 @@ fun SettingsScreen(
     )
 ) {
     val context = LocalContext.current
+    val scrollState = rememberScrollState()
+    if (section == SettingsSection.MAIN) {
+        com.example.nutrition.ui.navigation.TrackRootTitleScroll { scrollState.value.toFloat() }
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showAppearance by remember { mutableStateOf(false) }
 
@@ -117,7 +121,7 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
                 .padding(horizontal = 16.dp)
         ) {

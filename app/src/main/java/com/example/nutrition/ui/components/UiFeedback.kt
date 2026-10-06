@@ -5,10 +5,17 @@ import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -16,17 +23,23 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.ui.navigation.LocalPageChrome
+import com.example.nutrition.ui.navigation.LocalRootPage
 import com.example.nutrition.ui.navigation.PageChrome
 import com.example.nutrition.ui.theme.LocalAppearance
 import com.example.nutrition.ui.theme.Primary
 import com.example.nutrition.ui.theme.ProteinColor
 import com.example.nutrition.ui.theme.FatColor
+import com.example.nutrition.ui.theme.BgCard
+import com.example.nutrition.ui.theme.TextPrimary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 
@@ -80,7 +93,7 @@ fun ObserveUiEvents(events: Flow<UIEvent>, blocked: Boolean = false) {
     }
 }
 
-/** A brief, non-intercepting decoration; success text is presented in the existing toolbar. */
+/** Brief, non-intercepting feedback; root page names stay visible while saving. */
 @Composable
 fun FeedbackOverlay(chrome: PageChrome) {
     val notice = chrome.notice ?: return
@@ -89,6 +102,18 @@ fun FeedbackOverlay(chrome: PageChrome) {
         if (notice.celebration) progress.animateTo(1f, tween(1400))
         delay(if (notice.celebration) 800 else 2200)
         if (chrome.notice?.id == notice.id) chrome.notice = null
+    }
+    if (LocalRootPage.current) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopCenter) {
+            Text(
+                notice.message,
+                color = TextPrimary,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.background(BgCard, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+            )
+        }
     }
     if (notice.celebration) {
         val colors = listOf(Primary, ProteinColor, FatColor)

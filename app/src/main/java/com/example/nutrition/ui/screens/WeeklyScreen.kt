@@ -67,6 +67,8 @@ fun WeeklyScreen(
     )
 ) {
     val context = LocalContext.current
+    val scrollState = rememberScrollState()
+    com.example.nutrition.ui.navigation.TrackRootTitleScroll { scrollState.value.toFloat() }
 
     // 页面状态（单一 UiState）
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -83,7 +85,7 @@ fun WeeklyScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
         ) {
             com.example.nutrition.ui.navigation.PageTitle("周报", "先看这一周的结果", modifier = Modifier.padding(horizontal = 16.dp))

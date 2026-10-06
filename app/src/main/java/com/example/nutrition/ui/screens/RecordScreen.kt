@@ -94,6 +94,7 @@ fun RecordScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    com.example.nutrition.ui.navigation.TrackRootTitleScroll { scrollState.value.toFloat() }
     val chrome = LocalPageChrome.current
     var editRequest by remember { mutableIntStateOf(0) }
     SideEffect {

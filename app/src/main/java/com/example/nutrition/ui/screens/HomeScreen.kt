@@ -86,6 +86,10 @@ fun HomeScreen(
     val context = LocalContext.current
 
     val listState = rememberLazyListState()
+    com.example.nutrition.ui.navigation.TrackRootTitleScroll {
+        if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat()
+        else Float.POSITIVE_INFINITY
+    }
 
     // 日期选择辅助
     fun showHomeDatePicker() {

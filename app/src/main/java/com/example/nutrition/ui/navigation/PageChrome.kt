@@ -4,13 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -49,10 +53,19 @@ class PageChrome(private val threshold: Float) {
 
     var visible by mutableStateOf(true)
     var collapsed by mutableStateOf(false)
+    var titleCollapseFraction by mutableFloatStateOf(0f)
+        private set
     var editing by mutableStateOf(false)
     var keyboardOpen by mutableStateOf(false)
     var topBarBottom by mutableFloatStateOf(0f)
     private var distance = 0f
+
+    // Use consumed content scroll, never finger deltas or clipped layout bounds.
+    fun updateTitleScroll(offsetPx: Float, collapseDistancePx: Float) {
+        titleCollapseFraction = (offsetPx / collapseDistancePx.coerceAtLeast(1f)).coerceIn(0f, 1f)
+        collapsed = titleCollapseFraction >= 1f
+        if (offsetPx <= 0f) visible = true
+    }
 
     val scrollConnection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -70,7 +83,8 @@ class PageChrome(private val threshold: Float) {
 
     fun reset() {
         visible = true
-        collapsed = true
+        collapsed = false
+        titleCollapseFraction = 0f
         editing = false
         distance = 0f
         notice = null
@@ -80,6 +94,19 @@ class PageChrome(private val threshold: Float) {
 val LocalPageChrome = staticCompositionLocalOf<PageChrome> { error("Page requires MainScreen") }
 // Insets belong inside each scroll container, so hiding an overlay never resizes its viewport.
 val LocalPageContentPadding = staticCompositionLocalOf { PaddingValues() }
+val LocalRootPage = staticCompositionLocalOf { false }
+// Initial page spacing and fixed toolbar clearance serve different purposes.
+val LocalPageTopBarHeight = staticCompositionLocalOf { 48.dp }
+
+@Composable
+fun TrackRootTitleScroll(scrollOffset: () -> Float) {
+    val chrome = LocalPageChrome.current
+    val currentOffset by rememberUpdatedState(scrollOffset)
+    val collapseDistance = with(LocalDensity.current) { MaterialTheme.typography.headlineLarge.lineHeight.toPx() }
+    LaunchedEffect(chrome, collapseDistance) {
+        snapshotFlow { currentOffset() }.collect { chrome.updateTitleScroll(it, collapseDistance) }
+    }
+}
 
 @Composable
 fun PageTitle(
@@ -90,9 +117,11 @@ fun PageTitle(
     action: (@Composable () -> Unit)? = null
 ) {
     val chrome = LocalPageChrome.current
+    val rootPage = LocalRootPage.current
+    val titleHeight = with(LocalDensity.current) { MaterialTheme.typography.headlineLarge.lineHeight.toDp() }
     Column(
         modifier = modifier.fillMaxWidth().onGloballyPositioned {
-            if (trackScroll) {
+            if (trackScroll && !rootPage) {
                 val bounds = it.boundsInRoot()
                 chrome.collapsed = bounds.bottom <= chrome.topBarBottom
                 if (bounds.top >= chrome.topBarBottom) chrome.visible = true
@@ -100,9 +129,14 @@ fun PageTitle(
         }.padding(top = 4.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.headlineLarge, color = TextPrimary, modifier = Modifier.weight(1f))
-            action?.invoke()
+        if (rootPage) {
+            // MainScreen draws a single title that stays left-aligned while shrinking.
+            Spacer(Modifier.height(titleHeight))
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.headlineLarge, color = TextPrimary, modifier = Modifier.weight(1f))
+                action?.invoke()
+            }
         }
         if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
     }
@@ -115,8 +149,7 @@ fun formRevealModifier(request: Int): Modifier {
     val requester = remember { BringIntoViewRequester() }
     val density = LocalDensity.current
     val headingHeight = with(density) { 120.dp.toPx() }
-    val topPadding = LocalPageContentPadding.current.calculateTopPadding()
-    val topInset = with(density) { topPadding.toPx() }
+    val topInset = with(density) { LocalPageTopBarHeight.current.toPx() }
     LaunchedEffect(request, topInset) {
         if (request > 0) {
             withFrameNanos { }

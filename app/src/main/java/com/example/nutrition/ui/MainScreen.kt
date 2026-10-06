@@ -1,6 +1,9 @@
 package com.example.nutrition.ui
 
 import com.example.nutrition.ui.components.FeedbackOverlay
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,12 +16,14 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -36,7 +41,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.positionInRoot
@@ -44,6 +51,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -90,20 +101,23 @@ fun MainScreen() {
         }
     }
     val showChrome = chrome.visible || chrome.editing || keyboardOpen || chrome.notice != null
-    val topBarVisibility by animateFloatAsState(
-        targetValue = if (rootPage == null || showChrome) 1f else 0f,
-        animationSpec = tween(180), label = "topBarVisibility"
-    )
     val bottomBarVisibility by animateFloatAsState(
         targetValue = if (showChrome) 1f else 0f,
         animationSpec = tween(180), label = "bottomBarVisibility"
     )
-    val topBarHeight = 48.dp
+    val topBarHeight = maxOf(48.dp, with(density) { MaterialTheme.typography.headlineLarge.lineHeight.toDp() } + 8.dp)
+    val topBarColor = BgMain
+    val expandedTitleOffset = with(density) { 8.dp.toPx() }
     val pagePadding = PaddingValues(
-        top = topBarHeight,
+        top = if (rootPage != null) 8.dp else topBarHeight,
         bottom = if (rootPage != null && !keyboardOpen) 96.dp else 16.dp
     )
-    CompositionLocalProvider(LocalPageChrome provides chrome, LocalPageContentPadding provides pagePadding) {
+    CompositionLocalProvider(
+        LocalPageChrome provides chrome,
+        LocalPageContentPadding provides pagePadding,
+        LocalRootPage provides (rootPage != null),
+        LocalPageTopBarHeight provides topBarHeight
+    ) {
         Scaffold(
             modifier = Modifier.fillMaxSize().imePadding().nestedScroll(chrome.scrollConnection),
             containerColor = BgMain,
@@ -114,29 +128,54 @@ fun MainScreen() {
                 .onGloballyPositioned { chrome.topBarBottom = it.positionInRoot().y + with(density) { topBarHeight.toPx() } }) {
                 AppNavGraph(navController)
                 Box(Modifier.padding(top = topBarHeight)) { FeedbackOverlay(chrome) }
-                // Overlay translations keep every scroll viewport stable throughout the animation.
-                androidx.compose.material3.Surface(
-                    color = BgMain.copy(alpha = 0.94f),
-                    modifier = Modifier.align(Alignment.TopCenter).graphicsLayer {
-                        translationY = (topBarVisibility - 1f) * size.height
-                        alpha = topBarVisibility
+                // Only draw/transform the header; scrolling never resizes the viewport.
+                Box(
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().drawBehind {
+                        val opacity = if (rootPage == null) 0.94f else 1f
+                        drawRect(topBarColor.copy(alpha = opacity))
                     }
                 ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().height(topBarHeight).padding(horizontal = 12.dp),
+                            modifier = Modifier.fillMaxWidth().height(topBarHeight).padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (rootPage == null) {
                                 TextButton(onClick = { navController.popBackStack() }, modifier = Modifier.width(84.dp)) {
                                     Text("‹ 返回", color = Primary)
                                 }
+                                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                    Text(chrome.notice?.message ?: if (chrome.collapsed) title else "", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+                                }
+                                Box(Modifier.width(84.dp))
                             } else {
-                                Text("wedo", color = Primary, fontWeight = FontWeight.Bold, modifier = Modifier.width(84.dp))
+                                Text(
+                                    title,
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).semantics { heading() }.graphicsLayer {
+                                        val fraction = chrome.titleCollapseFraction
+                                        val scale = 1f - fraction * (1f - 20f / 32f)
+                                        scaleX = scale
+                                        scaleY = scale
+                                        transformOrigin = TransformOrigin(0f, 0.5f)
+                                        translationY = expandedTitleOffset * (1f - fraction)
+                                    }
+                                )
+                                TextButton(
+                                    onClick = {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Joshmax010/wedo-Android")))
+                                        } catch (_: ActivityNotFoundException) {
+                                            Toast.makeText(context, "未找到可打开链接的应用", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "打开 WeDo 的 GitHub 项目" }
+                                ) {
+                                    Text("wedo", color = Primary, fontWeight = FontWeight.Bold)
+                                }
                             }
-                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                Text(chrome.notice?.message ?: if (chrome.collapsed) title else "", color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                            }
-                            Box(Modifier.width(84.dp))
                         }
                 }
                 // Secondary settings pages use their back button and never reserve a tab-bar area.
