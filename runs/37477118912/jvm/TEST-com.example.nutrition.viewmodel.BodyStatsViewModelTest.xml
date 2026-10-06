@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.viewmodel.BodyStatsViewModelTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-06T14:16:26.766Z" hostname="runnervm8df0l" time="0.049">
+  <properties/>
+  <testcase name="delayedDateRead_doesNotOverwriteUserInput" classname="com.example.nutrition.viewmodel.BodyStatsViewModelTest" time="0.024"/>
+  <testcase name="changingDate_cancelsPreviousRead_andKeepsLatestResult" classname="com.example.nutrition.viewmodel.BodyStatsViewModelTest" time="0.016"/>
+  <testcase name="editingHistoryCancelsAnOlderReadAndRefillsTheSnapshot" classname="com.example.nutrition.viewmodel.BodyStatsViewModelTest" time="0.009"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

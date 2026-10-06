@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.domain.usecase.DailyGoalTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-06T14:16:26.637Z" hostname="runnervm8df0l" time="0.005">
+  <properties/>
+  <testcase name="calorie upper boundary qualifies with all macros" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.002"/>
+  <testcase name="calories below band qualify only for macro feedback" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.0"/>
+  <testcase name="each macro is required independently" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.0"/>
+  <testcase name="invalid target does not create spurious completion" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.001"/>
+  <testcase name="calories above band do not qualify for daily celebration" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.0"/>
+  <testcase name="empty day never qualifies" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.0"/>
+  <testcase name="totals across meals use the same aggregation as the overview" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.001"/>
+  <testcase name="calorie lower boundary qualifies with all macros" classname="com.example.nutrition.domain.usecase.DailyGoalTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

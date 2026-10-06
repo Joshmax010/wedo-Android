@@ -1,0 +1,13 @@
+{
+  "commit": "500c7c02686b8e67ee43cc620bdc558692f287d9",
+  "job_status": "success",
+  "suites": {
+    "jvm": {
+      "tests": 149,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "report_files": 13
+    }
+  }
+}

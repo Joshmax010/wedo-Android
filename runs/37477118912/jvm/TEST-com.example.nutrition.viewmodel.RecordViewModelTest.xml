@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.nutrition.viewmodel.RecordViewModelTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-06T14:16:26.974Z" hostname="runnervm8df0l" time="0.101">
+  <properties/>
+  <testcase name="delayedSave_doesNotResetNewDraft" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.022"/>
+  <testcase name="successfulTodaySave_reportsGoalEligibility" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.005"/>
+  <testcase name="historicalHomeSelectionWritesToThatDateAndMeal" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.007"/>
+  <testcase name="autocomplete_reusesOneSubscription_andRespondsToTemplateEdits" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.018"/>
+  <testcase name="restoringPage_andSelectingSameMeal_preserveDraft" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.006"/>
+  <testcase name="successfulHistoricalSave_doesNotRequestGoalFeedback" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.01"/>
+  <testcase name="changingDate_clearsPreviousRecords_beforeDelayedReadCompletes" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.009"/>
+  <testcase name="readFailure_isVisible_andChangingDateCanRecover" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.01"/>
+  <testcase name="optionalFeedbackReadFailure_doesNotReportACompletedWriteAsFailed" classname="com.example.nutrition.viewmodel.RecordViewModelTest" time="0.01"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
