@@ -173,7 +173,7 @@ fun MainScreen() {
                                     },
                                     modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "打开 WeDo 的 GitHub 项目" }
                                 ) {
-                                    Text("wedo", color = Primary, fontWeight = FontWeight.Bold)
+                                    Text("wedo", style = MaterialTheme.typography.headlineMedium, color = Primary, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
