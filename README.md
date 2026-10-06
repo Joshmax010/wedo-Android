@@ -1,220 +1,119 @@
-# 健身wedo · Android
+# WeDo · Android 营养与身体记录
 
 [![Release](https://img.shields.io/github/v/release/Joshmax010/wedo-Android?style=flat-square)](https://github.com/Joshmax010/wedo-Android/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=flat-square)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?style=flat-square)](https://developer.android.com/jetpack/compose)
-[![Offline](https://img.shields.io/badge/network-none-blueviolet?style=flat-square)](#数据与隐私)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow?style=flat-square)](./LICENSE)
+[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square)](https://developer.android.com)
+[![CI](https://github.com/Joshmax010/wedo-Android/actions/workflows/cloud-tests.yml/badge.svg)](https://github.com/Joshmax010/wedo-Android/actions/workflows/cloud-tests.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
 
-**中文** | [English](#english)
+WeDo 是一款以本地数据为基础的 Android 营养记录工具。按餐记录饮食与摄入量，对照每日目标查看完成情况，通过周报和身体趋势回顾变化。无需注册账户，核心功能可离线使用。
 
-> 纯离线、隐私优先的营养记录工具。本地记录每日饮食与身体数据，自动汇总对比目标并生成周报 —— 全程不联网。
+**[下载 v1.4.5 安装包](https://github.com/Joshmax010/wedo-Android/releases/download/v1.4.5/wedo-fitness-v1.4.5.apk)** · [版本说明](https://github.com/Joshmax010/wedo-Android/releases/tag/v1.4.5) · [维护指南](./MAINTENANCE.md) · [English](#english)
 
-「健身wedo」是同名微信小程序的 Android 原生版本，两端共享核心数据模型与备份 JSON Schema，备份文件可直接跨端迁移。当前发布版本为 **v1.4.3**；`codex/atomic-backup-import` 分支包含底层优化、代码清理与已确认的 UI 改版，待真机回归后再合并。
-
-## 下载安装
+## 安装与升级
 
 | 项目 | 说明 |
-|------|------|
-| 最新版本 | [v1.4.3 · Releases](https://github.com/Joshmax010/wedo-Android/releases/latest) |
-| 安装包 | `wedo-fitness-v1.4.3.apk`（约 2.3 MB） |
+| --- | --- |
+| 版本 | 1.4.5（versionCode 6） |
 | 系统要求 | Android 8.0（API 26）及以上 |
-| 包名 | `com.example.nutrition` |
+| 安装包 | `wedo-fitness-v1.4.5.apk`，约 2.2 MB，见 GitHub Releases 的 Assets |
+| 应用包名 | `com.example.nutrition` |
+| 校验信息 | [SHA-256 校验文件](https://github.com/Joshmax010/wedo-Android/releases/download/v1.4.5/wedo-fitness-v1.4.5.apk.sha256)；签名证书指纹见 Release 说明及维护指南 |
 
-下载 APK 后传至手机安装即可（首次安装需允许「安装未知来源应用」）。后续版本沿用同一签名密钥，可直接覆盖升级。
+下载 APK 后在手机上安装；首次安装需允许对应来源安装应用。升级前在「设置 → 数据管理」导出 JSON 备份，并保存到应用之外的位置。
 
-<details>
-<summary>校验安装包（可选）</summary>
+- **官方 v1.4.3 用户**：v1.4.5 沿用原发布签名，可以覆盖升级并保留数据。
+- **本轮 debug 测试包用户**：测试包与正式发布包的签名不同，不能覆盖安装。先导出并保存 JSON 备份，再卸载测试包、安装正式包，最后在「数据管理」导入备份。**卸载会清除本地数据，必须先确认备份已保存。**
 
-| 项目 | 值 |
-|------|------|
-| APK SHA-256 | `119b0fe5be6c95ae4283b6d3e74bbb8a7833bbd81184ef3df62f123ee8f4301f` |
-| 签名证书 SHA-256 | `041d81d18eb0d91506d4ec5c88d1c0f3a49aacf59bbaeb8f6d3fd697f8e4dd23` |
-| 签名证书 DN | `CN=Nutrition Tracker, OU=wedo, O=Joshmax010, L=Beijing, ST=Beijing, C=CN` |
-| 签名方案 | v2 + v3 |
+## 主要功能
 
-```bash
-sha256sum wedo-fitness-v1.4.3.apk
-apksigner verify --print-certs wedo-fitness-v1.4.3.apk
-```
+| 页面 / 功能 | 能力 |
+| --- | --- |
+| 总览 | 查看指定日期的热量、宏量与微量营养素、四餐汇总，以及每日目标完成度 |
+| 录入 | 早餐、午餐、晚餐、加餐独立记录；kcal / kJ 联动换算；按克重计算摄入量；编辑和删除历史记录 |
+| 食物模板 | 内置常用食物，支持自定义模板、分类标签与录入自动补全 |
+| 周报 | 7 日趋势、营养素统计、达标率与热量缺口汇总，支持复制报告文本 |
+| 身体与目标 | 记录体重、体脂率和肌肉量；保存身体档案；计算 BMR / TDEE 并预览推荐营养目标 |
+| 外观 | 跟随系统、浅色、深色主题；本机保存外观偏好 |
+| 数据管理 | JSON 导出、预览与确认导入，兼容旧版备份和同名微信小程序的备份格式 |
 
-</details>
+## 1.4.5 更新
 
-## 功能特性
+- **备份可靠性**：目标、饮食、元信息、自定义模板和身体记录在同一个 Room 事务中导入；写入或现有回读校验失败时回滚。读取失败显示错误与重试入口，避免生成不完整备份。
+- **页面布局**：四餐等宽排列，压缩页头留白；滚动时左侧标题由 32sp 缩小到 20sp 并保留在顶部。右侧 WeDo 使用 20sp，点击后通过系统浏览器打开本项目。
+- **编辑体验**：录入与身体记录的历史编辑定位避开顶部栏；设置二级页面隐藏底部主导航，不再保留底栏占位。
+- **信息表达**：热量差值使用非负数配合「还差 / 超出 / 已达目标」，保留必要小数；修正记录卡片的侧滑背景与保存反馈。
 
-### 记录
-
-- **四餐分列** — 早餐 / 午餐 / 晚餐 / 加餐独立录入与合计
-- **双单位热量** — kcal 与 kJ 联动输入，按 1 kcal = 4.184 kJ 自动换算
-- **按克重换算** — 以每 100 g 基准值录入，自动换算实际摄入份量
-- **食物模板库** — 约 200 种内置预设食物，覆盖主食、肉蛋奶、豆制品、蔬菜、水果、坚果零食、饮品、油脂调料，带分类标签；支持自定义模板、多标签管理与录入自动补全
-
-### 分析
-
-- **代谢计算** — 填写身体档案（性别 / 年龄 / 身高 / 体重 / 活动量），按 Mifflin-St Jeor 公式计算 BMR 与 TDEE，一键套用推荐宏量目标
-- **目标对比** — 首页概览展示当日热量与三大营养素完成度；热量差值以非负数和「还差 / 超出 / 已达目标」表达，保留必要小数
-- **每周统计** — 7 日趋势折线图与营养素柱状图（自绘 Canvas 实现）、达标率与热量缺口汇总，支持一键复制周报文本
-- **身体记录** — 体重 / 体脂率 / 肌肉量历史与趋势图
-
-### 外观
-
-- **主题选择** — 支持跟随系统、浅色与深色，保存本机偏好；深色主文字为白色，浅色页面背景为纯白
-- **浏览与编辑** — 主页面滚动时收起上下导航，反向滑动恢复；设置子页仅保留返回顶栏；历史记录回填同一表单并定位到顶栏下方
-- **完成反馈** — 普通保存轻提示；今日主动饮食保存后首次满足全天目标时短暂庆祝
-
-### 数据
-
-- **JSON 备份** — 可读格式导出 / 导入，兼容旧版备份（缺失字段自动补默认值）
-- **跨端迁移** — 与微信小程序端使用同一份备份 Schema
-
-## 技术栈
-
-| 层级 | 选型 |
-|------|------|
-| 语言 | Kotlin 2.2.10 |
-| UI | Jetpack Compose + Material 3（Compose BOM 2024.06.00） |
-| 架构 | MVI 风格 MVVM — 单一 `UiState`（StateFlow）＋一次性事件（`Channel`）＋ UseCase ＋ Repository |
-| 导航 | navigation-compose 2.8.2（`@Serializable` 类型安全路由） |
-| 存储 | Room 2.8.4（读操作返回 `Flow`，写操作返回 `Resource<Unit>`） |
-| 序列化 | kotlinx.serialization 1.6.3 |
-| 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.2 |
-| 测试 | JUnit 4 ＋ kotlinx-coroutines-test（143 个单元测试）＋ Room instrumentation 测试 |
-
-最低支持 Android 8.0（API 26），targetSdk / compileSdk 34。
-
-## 项目结构
-
-```
-app/src/main/java/com/example/nutrition/
-├── data/
-│   ├── local/db/          # Room 数据库与 DAO
-│   ├── local/entity/      # 数据表实体
-│   └── repository/        # 仓库实现（Flow 读 / Resource 写）
-├── domain/
-│   ├── constants/         # 营养素常量与预设食物模板
-│   ├── model/             # 领域模型
-│   ├── repository/        # 仓库接口
-│   └── usecase/           # 业务逻辑（换算 / 校验 / 计算器 / 备份）
-├── ui/
-│   ├── charts/            # 自绘 Canvas 图表
-│   ├── components/        # 通用组件
-│   ├── navigation/        # 路由与底部导航
-│   ├── screens/           # 页面
-│   └── theme/             # 主题与排版
-└── viewmodel/             # 各页面 ViewModel 与事件定义
-```
-
-主源码共 75 个 Kotlin 文件。
-
-## 构建与开发
-
-**环境要求**：Android Studio（最新稳定版）、JDK 17+、Android SDK 34。项目已内置 Gradle Wrapper（9.4.1），克隆后无需额外配置：
-
-```bash
-git clone https://github.com/Joshmax010/wedo-Android.git
-cd wedo-Android
-./gradlew :app:assembleDebug
-```
-
-**运行测试**：
-
-```bash
-./gradlew :app:testDebugUnitTest
-```
-
-<details>
-<summary>发布签名配置</summary>
-
-签名密钥不纳入版本控制。如需产出可安装的正式包，在项目根目录创建 `keystore.properties`：
-
-```properties
-storeFile=<你的密钥文件名>
-storePassword=<密码>
-keyAlias=<别名>
-keyPassword=<密码>
-```
-
-再执行 `./gradlew :app:assembleRelease`。该文件缺失时构建自动退化为 unsigned APK，不影响日常开发与 CI。
-
-> 密钥丢失将导致老用户无法覆盖升级，请妥善备份。
-
-</details>
-
-**已知限制**：项目路径包含非 ASCII 字符（如中文）时，在 Windows 上直接执行单元测试会触发 Gradle Test Worker 的 `ClassNotFoundException`（Gradle 8.13 与 9.4.1 均已复现，属 Gradle 路径编码缺陷，非代码问题）。解决办法见 [`PROJECT_DOCUMENTATION.md` §7.3](./PROJECT_DOCUMENTATION.md)。
+本轮功能与界面已由用户于 **2026-10-06** 完成手工真机验收。发布构建、自动测试、签名与设备测试的详细记录见 [维护指南](./MAINTENANCE.md)；手工验收与 Room instrumentation 自动测试分别记录。
 
 ## 数据与隐私
 
-- 所有数据仅保存在设备本地的 Room 数据库中
-- 应用不申请任何网络权限，不联网、不上传、不埋点、不采集任何信息
-- 卸载应用会清除全部数据，请定期使用内置的 JSON 导出功能备份
+应用数据保存在本机 Room 数据库，外观偏好保存在本机设置中。应用不申请 `INTERNET` 权限，不提供账号、云端同步或上传接口；WeDo 项目链接交由系统浏览器处理，浏览器访问 GitHub 需要网络。
 
-本轮底层可靠性优化的本地编译、自动化测试及真机检查见 [统一回归清单](./LOCAL_REGRESSION_CHECKLIST.md)。
+备份采用可读 JSON，导出结果复制到剪贴板，导入前可预览内容。当前备份 Schema 为 v3，数据库为 v4；本次发布不引入数据库迁移。
 
-## 维护状态
+- 备份列出的日期覆盖对应饮食记录，未列出的日期保留。
+- 旧备份缺少自定义模板或身体记录字段时保留现有数据；明确提供空列表时清空相应数据，内置食物模板保留。
+- 卸载应用或清除应用数据会删除本地记录。应用关闭 Android 自动备份，请自行保存导出的 JSON 文件。
 
-遵循语义化版本。当前发布版为 **v1.4.3**。功能分支改动待真机回归后再确定合并与发布版本。完整的架构说明、数据模型、数据库迁移记录与逐版本变更历史见 [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)。
+## 开发与验证
 
-## 开源协议
-
-基于 [MIT License](./LICENSE) 开源，可自由使用、修改与分发。
-
-Copyright (c) 2026 Joshmax010
-
----
-
-## English
-
-[中文](#健身wedo--android) | English
-
-> A fully offline, privacy-first nutrition tracker for Android. Log meals and body metrics locally, compare them against your goals and generate weekly reports — entirely on-device.
-
-**健身wedo** (wedo Fitness) is the native Android port of the WeChat Mini Program of the same name. Both ends share the same core data model and backup JSON schema, so backups migrate across platforms. The latest release is **v1.4.3**. The `codex/atomic-backup-import` branch contains reliability improvements, code cleanup and the approved UI redesign, pending device testing before merging.
-
-### Download
-
-| | |
-|---|---|
-| Latest release | [v1.4.3](https://github.com/Joshmax010/wedo-Android/releases/latest) |
-| APK | `wedo-fitness-v1.4.3.apk` (~2.3 MB) |
-| Requires | Android 8.0 (API 26)+ |
-| Package | `com.example.nutrition` |
-
-Verify the download: SHA-256 `119b0fe5be6c95ae4283b6d3e74bbb8a7833bbd81184ef3df62f123ee8f4301f`, signed with v2 + v3 schemes.
-
-### Features
-
-- **Meal logging** — breakfast / lunch / dinner / snacks, with kcal & kJ dual-unit input (1 kcal = 4.184 kJ)
-- **Weight-based entry** — log per 100 g and let the app scale to the actual portion
-- **Food templates** — ~200 built-in preset foods with category tags, plus custom templates and auto-complete
-- **Metabolism** — body profile → BMR & TDEE via Mifflin-St Jeor, one-tap recommended macro targets
-- **Weekly report** — 7-day trends with hand-drawn Canvas charts, achievement rates, copy-to-clipboard summary
-- **Body stats** — weight / body fat / muscle mass history and trend charts
-- **Appearance** — persistent system/light/dark themes, scroll-aware navigation and grouped settings
-- **Goal feedback** — subtle save confirmation and a brief, once-per-day celebration after manually logging a completed day
-- **Backup & restore** — human-readable JSON, tolerant of older schemas, cross-platform with the Mini Program
-
-### Tech Stack
-
-Kotlin 2.2.10 · Jetpack Compose + Material 3 · MVI-style MVVM (single `UiState` + `Channel` events, UseCase layer, Repository with `Flow` reads / `Resource<Unit>` writes) · navigation-compose 2.8.2 type-safe routes · Room 2.8.4 · kotlinx.serialization · Gradle 9.4.1 / AGP 9.2.1 / KSP 2.3.2 · 143 unit tests.
-
-### Build
-
-Requires Android Studio (latest stable), JDK 17+, Android SDK 34. The Gradle 9.4.1 wrapper is included:
+使用 **JDK 21** 运行 Gradle，安装 Android SDK Platform 34，并通过 Android Studio 或 `local.properties` 指定 SDK 路径。Java / Kotlin 源码目标为 JVM 17；Gradle 运行环境与源码目标不同。
 
 ```bash
 git clone https://github.com/Joshmax010/wedo-Android.git
 cd wedo-Android
-./gradlew :app:assembleDebug
-./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
-Release signing is optional: create a gitignored `keystore.properties` to produce a signed APK; without it the build falls back to unsigned. See [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) (Chinese) for architecture, migrations and the full changelog.
+Windows PowerShell 使用同一组任务：
 
-### Privacy
+```powershell
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+```
 
-All data stays in a local Room database. The app requests no network permission and collects nothing. Uninstalling clears everything — use the built-in JSON export to back up.
+Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。Room instrumentation 用例需要 Android 设备或模拟器：
 
-### License
+```bash
+./gradlew :app:connectedDebugAndroidTest
+```
 
-[MIT License](./LICENSE) · Copyright (c) 2026 Joshmax010
+正式构建使用本地、未入库的 `keystore.properties` 配置发布签名，再运行 `:app:assembleRelease`。未配置签名时生成 unsigned APK，不能直接作为安装包发布。签名管理、版本更新、发布与回滚步骤见 [MAINTENANCE.md](./MAINTENANCE.md)。
+
+### 技术栈
+
+| 层级 | 实现 |
+| --- | --- |
+| 语言与 UI | Kotlin 2.2.10 · Jetpack Compose · Material 3 |
+| 状态与业务 | ViewModel / StateFlow · 一次性事件 · UseCase · Repository |
+| 导航 | Navigation Compose 2.8.2，类型安全路由 |
+| 持久化 | Room 2.8.4 · kotlinx.serialization 1.6.3 |
+| 构建 | Gradle 9.4.1 · AGP 9.2.1 · KSP 2.3.2 |
+| Android SDK | minSdk 26 · targetSdk / compileSdk 34 |
+| 验证 | JUnit 4 / coroutines-test · Room instrumentation · Android Lint · 手工设备验收 |
+
+源码位于 `app/src/main/java/com/example/nutrition/`：`data/` 负责存储，`domain/` 负责模型与业务规则，`viewmodel/` 负责页面状态，`ui/` 负责页面、导航、组件、图表和主题。
+
+## 文档与维护
+
+- [维护指南](./MAINTENANCE.md)：构建环境、版本与签名、测试边界、发布流程、分支策略及回滚。
+- [项目文档](./PROJECT_DOCUMENTATION.md)：架构、数据模型、数据库迁移、备份兼容性与变更历史。
+- [完整回归清单](./LOCAL_REGRESSION_CHECKLIST.md)：业务、备份、数据持久化与设备检查。
+- [页头复测清单](./PAGE_HEADER_DEVICE_CHECKLIST.md)：滚动标题、WeDo 链接、编辑定位与二级导航。
+
+反馈问题时请附应用版本、Android 版本、复现步骤及截图；涉及数据问题时使用脱敏示例，勿提交个人备份、签名密钥或本机配置。
+
+## 开源协议
+
+[MIT License](./LICENSE) · Copyright © 2026 Joshmax010
+
+## English
+
+WeDo is a local-first nutrition and body-metrics tracker for Android 8.0+. Log breakfast, lunch, dinner and snacks, scale food templates by portion weight, compare daily intake with goals, and review weekly reports and body trends.
+
+**[Download v1.4.5](https://github.com/Joshmax010/wedo-Android/releases/download/v1.4.5/wedo-fitness-v1.4.5.apk)** · [Release notes](https://github.com/Joshmax010/wedo-Android/releases/tag/v1.4.5)
+
+This release improves atomic backup imports, error recovery, scrolling headers and history editing. Main-page titles collapse from 32sp to 20sp on the left; the 20sp WeDo button on the right opens this repository in the system browser. Secondary settings pages omit the main bottom navigation.
+
+Core features work offline. Records remain in a local Room database; the app has no `INTERNET` permission or cloud-sync service. Opening the GitHub link uses an external browser. Official v1.4.3 installations can upgrade in place using the same release signing key. The temporary debug test build uses a different key: export and save a JSON backup first, uninstall the debug app, install the official release, then import the backup. Uninstalling deletes local data.
+
+Build with JDK 21 and Android SDK 34 using the Gradle Wrapper commands above. See [MAINTENANCE.md](./MAINTENANCE.md) and [PROJECT_DOCUMENTATION.md](./PROJECT_DOCUMENTATION.md) for release procedures and implementation details. Licensed under [MIT](./LICENSE).

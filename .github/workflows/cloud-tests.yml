@@ -2,7 +2,7 @@ name: Android cloud tests
 
 on:
   push:
-    branches: [codex/atomic-backup-import]
+    branches: [main]
     paths:
       - 'app/**'
       - 'build.gradle.kts'
@@ -12,6 +12,8 @@ on:
       - 'gradlew'
       - 'gradlew.bat'
       - '.github/workflows/cloud-tests.yml'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -81,38 +83,4 @@ jobs:
         with:
           name: android-cloud-test-results
           path: cloud-test-results/
-          retention-days: 7
-
-  record-results:
-    needs: test
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: android-cloud-test-results
-          path: ${{ runner.temp }}/test-results
-      - name: Record results on a separate branch
-        env:
-          RESULTS_DIR: ${{ runner.temp }}/test-results
-          TESTED_COMMIT: ${{ github.sha }}
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          git fetch origin codex/cloud-test-results || true
-          if git show-ref --verify --quiet refs/remotes/origin/codex/cloud-test-results; then
-            git switch -C codex/cloud-test-results origin/codex/cloud-test-results
-          else
-            git switch --orphan codex/cloud-test-results
-            git rm -rf --ignore-unmatch .
-          fi
-          mkdir -p "runs/$RUN_ID"
-          cp -R "$RESULTS_DIR/." "runs/$RUN_ID/"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add runs
-          git commit -m "Record cloud test results for $TESTED_COMMIT"
-          git push origin HEAD:refs/heads/codex/cloud-test-results
+          retention-days: 90

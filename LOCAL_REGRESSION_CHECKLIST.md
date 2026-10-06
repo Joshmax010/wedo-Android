@@ -1,10 +1,10 @@
 # 底层优化、代码清理与 UI 改版：本地统一回归清单
 
-底层调整为预防性的可靠性和状态管理优化，目前没有用户反馈导入故障。其后已在同一功能分支完成经第三版预览确认的六页 UI 改版；视觉和导航变化需要集中真机检查。
+底层调整为预防性的可靠性和状态管理优化，目前没有用户反馈导入故障。其后在 `codex/atomic-backup-import` 开发分支完成六页 UI 改版和页头优化。**2026-10-06 用户确认全部内容已完成真机手工测试，并授权合并 main、发布 1.4.5 及清理开发分支。** 以下条目保留为后续版本的回归检查表；未勾选框不是本轮尚未验收的声明。
 
 后续代码清理已删除未使用的封装、依赖与重复工厂，并精简食物预设声明；该清理阶段未改页面布局；随后 UI 改版分为四批独立提交。三个独立提交为 `592a1bc`、`5d2d62d`、`aa75c70`，清理后的编译、121 个 JVM 用例和 Lint 均已通过，见云端验证记录。
 
-代码位于 `codex/atomic-backup-import`，每项优化分别提交。应用版本仍为 1.4.3（versionCode 5），Room 数据库仍为 v4，备份 Schema 仍为 v3；本轮没有新增数据库迁移或应用网络权限。云端代码检查已通过，完整结果见 [云端验证记录](./CLOUD_VALIDATION.md)。
+发布主线为 `main`，1.4.5 对应 versionCode 6；Room 数据库保持 v4，备份 Schema 保持 v3。本轮没有新增数据库迁移或应用网络权限；WeDo 链接通过系统浏览器打开项目。每项优化的原提交仍保留在 Git 历史中。发布、构建与签名操作见 [维护操作说明](./MAINTENANCE.md)，分阶段验证结果见 [验证记录](./CLOUD_VALIDATION.md)。
 
 ## 拉取与构建
 
@@ -14,15 +14,15 @@ Windows PowerShell，在仓库根目录执行：
 
 ```powershell
 git fetch origin
-git switch codex/atomic-backup-import
+git switch main
 git pull --ff-only
 git log --oneline -12
 .\gradlew.bat :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug
 ```
 
-首次使用该功能分支时，`git switch` 可自动跟踪同名远程分支；如存在多个同名远程分支，使用 `git switch --track origin/codex/atomic-backup-import`。
+复现正式版本时使用 `git switch --detach v1.4.5`；开始新修改时从最新 `main` 创建新的 `codex/` 分支。具体构建环境使用 JDK 21 运行 Gradle 9.4.1，源码 JVM target 为 17，Windows 临时目录设置见 [维护操作说明](./MAINTENANCE.md)。
 
-设备检查由你后续自行进行，可通过 Android Studio 运行应用，或连接已开启 USB 调试的 Android 设备后执行：
+自动 instrumentation 与手工界面验收分别记录。本轮 38 个 Room 设备用例没有实际自动执行；后续连接已开启 USB 调试的 Android 设备或模拟器后可执行：
 
 ```powershell
 .\gradlew.bat :app:connectedDebugAndroidTest
@@ -34,7 +34,7 @@ git log --oneline -12
 .\gradlew.bat :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.example.nutrition.data.repository.RoomLocalStorageRepositoryTest"
 ```
 
-JVM 报告：`app/build/reports/tests/testDebugUnitTest/index.html`。设备报告：`app/build/reports/androidTests/connected/`。如果遇到 Windows 临时目录、SQLite 查询校验或中文路径问题，按维护文档 §7.3、§8 使用已有本地解决方案。
+JVM 报告：`app/build/reports/tests/testDebugUnitTest/index.html`。设备报告：`app/build/reports/androidTests/connected/`。Windows 中文路径问题见 [PROJECT_DOCUMENTATION.md §7.3](./PROJECT_DOCUMENTATION.md#73-运行测试)，临时目录与 SQLite 查询校验问题见 [§8 注意事项](./PROJECT_DOCUMENTATION.md#8-注意事项)；当前 PowerShell 操作见 [MAINTENANCE.md §2](./MAINTENANCE.md#2-获取代码与构建环境)。
 
 ## 自动化用例覆盖
 
@@ -49,19 +49,20 @@ JVM 报告：`app/build/reports/tests/testDebugUnitTest/index.html`。设备报�
 | UI 历史编辑与日期传递 | `eaf8a4a` | JVM 2 个：首页历史日期/餐次写入正确、身体卡片编辑取消旧日期读取 |
 | UI 完成反馈 | `fdb614d`、`f3b1301` | JVM 11 个：完成条件上下边界/缺宏量/无记录/无效目标/跨餐聚合，以及今天保存、历史保存、反馈读失败不会误报保存失败 |
 | 首轮设备反馈 | `44e6956` | JVM 5 个：剩余热量和百分比取整时的超标表达、导航方向/微小抖动/编辑与键盘行为 |
-| 完整性收尾 | `d89b50c` | JVM 2 个：小数热量差值的还差/超出（各覆盖 0.5 和 1.5 kcal）；共享编辑定位留出顶部栏空间，需按下列清单确认实际显示 |
+| 完整性收尾 | `d89b50c` | JVM 2 个：小数热量差值的还差/超出（各覆盖 0.5 和 1.5 kcal）；共享编辑定位留出顶部栏空间，实际显示已纳入本轮用户手工验收 |
+| 页头布局与项目入口 | `500c7c0`、`24facaa` | JVM 6 个：标题按实际滚动缩放与定位、页面导航状态；右侧 WeDo 项目入口和标题字号通过用户手工复测 |
 | 整体审查补充 | `0de7ebc` | JVM 4 个：切换日期清除旧列表、读取失败恢复、操作错误反馈、取消不误报；强化延迟读取用例，验证未编辑字段被补齐 |
 
-底层优化后的 121 个 JVM 用例已全部通过。UI 改版及后续收尾另增 22 个 JVM 用例，源码目前共 143 个 JVM 用例、38 个 Room 设备用例；**最新代码的编译、全部 143 个 JVM 用例与 Lint 均通过，零失败、零错误、零跳过；Lint 为 39 条既有警告，无新增。** 本轮云端未打包 APK，未执行真机/模拟器测试；38 个 Room 设备用例仍待你本地执行。详见 [云端验证记录](./CLOUD_VALIDATION.md)。
+底层优化阶段 121 个 JVM 用例、完整性收尾阶段 143 个 JVM 用例均曾通过；页头修改再增加 6 个，目前共 **149 个 JVM 用例、38 个 Room 设备用例**。最新页头阶段本地 JVM 全部通过，0 失败、0 错误、0 跳过；Lint 0 错误、25 条警告，Debug APK 构建通过。用户于 2026-10-06 确认全部内容手工验收完成。38 个 Room instrumentation 用例本轮未实际自动执行；编译测试 APK 和手工点击界面都不等同于执行这些用例。正式版本构建和云端历史结果分别见 [维护操作说明](./MAINTENANCE.md) 与 [验证记录](./CLOUD_VALIDATION.md)。
 
 设备用例通过内存数据库和测试专用触发器模拟失败，不会修改应用的持久化数据库；无需人为损坏真实用户数据。
 
 ## UI 真机手工检查
 
-2026-10-01 的首轮设备反馈已修正。本次收尾优先复查饮食/身体编辑定位与小数热量差值；其余条目保留作为合并前参考。
+2026-10-01 首轮反馈与最终页头反馈已修正。2026-10-06 用户明确确认全部内容测试完成；下面的可复用条目用于后续改动时重新记录结果，页头专项操作见 [页头真机检查表](./PAGE_HEADER_DEVICE_CHECKLIST.md)。
 
 - [ ] 外观：跟随系统、手动浅色/深色即时生效，退出重开保留；浅色页面纯白，中性灰卡片/字段，深色标题和主要数值为白色，图表标签、辅助文字清晰。
-- [ ] 浏览：四个主页面向下浏览时上下导航以位移收起，反向滑动/回顶部恢复；动画不改变滚动视口高度，录入页标题、餐次与日期随内容自然滚动，不突跳。大标题转为顶部小标题；键盘不遮挡当前输入与保存入口。标题与顶部品牌间距缩小。
+- [ ] 浏览：四个主页面标题靠上、WeDo 在右侧；随实际滚动，左侧标题由 32sp 缩至固定顶部的 20sp，WeDo 同为 20sp。底导航上滑时以位移收起，反向滑动/回顶部恢复；动画不改变滚动视口高度，录入页餐次与日期随内容自然滚动，不突跳。键盘不遮挡当前输入与保存入口。WeDo 按下有反馈，点击打开准确项目地址，从浏览器返回保持原页状态。
 - [ ] 首页：热量→三大营养→四餐→全部微量营养；无悬浮录入按钮，空状态按钮和底部录入正常；零热量记录仍展示仪表盘。缺口数值非负，用「还差 / 超出 / 已达目标」表达方向，恰好达标显示 0；2001/2000 即使进度取整为 100% 仍显示「1 kcal · 超出」。目标 2000.5 时，摄入 2001/2000 分别显示「0.5 kcal · 超出/还差」；摄入 2002/1999 分别显示「1.5 kcal · 超出/还差」。
 - [ ] 首页跨日期：选择过去某日，分别点四餐，录入页日期、餐次和记录对应；从其他餐次再次跳入也使用新选择，避免被旧路由参数覆盖。
 - [ ] 饮食编辑：四餐标签等宽铺满、左右对称；点击历史卡片，回填现有完整表单并定位，表单标题位于顶部覆盖栏下方；取消/更新、名称候选应用、克重与双热量单位联动、宏量及微量营养编辑正常。静止和新增后卡片四角不露红，只有向左侧滑才显示红色删除背景；保留删除确认和取消恢复。
@@ -75,7 +76,7 @@ JVM 报告：`app/build/reports/tests/testDebugUnitTest/index.html`。设备报�
 
 ## 真机手工检查
 
-以下项目可以等自动化测试与编译完成后一次检查。
+以下保留基础功能的手工回归步骤。本轮用户验收已经完成；后续改动按影响范围复查，并记录实际设备与结果。
 
 - [ ] 饮食记录：四个餐次分别新增、编辑、删除；编辑保留记录归属、ID 和创建时间；跨日期切换不出现上一日期的记录卡片。快速连续保存后检查记录总数。
 - [ ] 录入表单：输入名称、热量、克重、宏量/微量营养素后切到后台再返回，或旋转屏幕，输入保持；再次点击当前餐次不清空输入；主动切换其他餐次仍按原逻辑重置表单。
@@ -94,4 +95,4 @@ JVM 报告：`app/build/reports/tests/testDebugUnitTest/index.html`。设备报�
 
 ## 记录测试结果
 
-测试完成后记录当前 `git rev-parse HEAD`、Android 版本、设备型号、编译/JVM/设备用例结果及异常复现步骤。若需要比较优化前行为，以 `0933870` 为稳定基线；每个优化项均可通过独立提交查看差异。测试通过后再决定合并或发布。
+每轮测试记录当前 `git rev-parse HEAD`、应用版本、Android 版本、设备型号，以及构建/JVM/Lint/instrumentation/手工验收各自结果和异常步骤。本轮验收代码为 `24facaa`，用户确认日期为 2026-10-06；未提供的设备型号和 Android 版本不补写猜测值。若需要比较优化前行为，以 `0933870` 为历史基线，各优化项可通过独立提交查看差异。1.4.5 的合并与发布由用户本轮明确授权，发布完成情况见 [维护操作说明](./MAINTENANCE.md)。
