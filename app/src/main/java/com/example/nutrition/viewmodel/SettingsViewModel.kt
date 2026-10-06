@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.model.ActivityLevel
@@ -18,6 +17,7 @@ import com.example.nutrition.domain.usecase.BackupManager
 import com.example.nutrition.domain.usecase.MetabolismCalculator
 import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.components.NutrientConstantItem
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,7 +88,8 @@ class SettingsViewModel(
         // 存储状态
         val storageInfo: StorageInfo? = null,
         // 清空确认
-        val showClearConfirm: Boolean = false
+        val showClearConfirm: Boolean = false,
+        val targetsError: String? = null
     )
 
     /** 版本信息（静态） */
@@ -107,55 +108,60 @@ class SettingsViewModel(
 
     // 当前是否由自动计算产生（用于保存时标记）
     private var isAutoCalculatedFlag: Boolean = false
+    private var targetsLoaded = false
+    private var targetsJob: Job? = null
+    private var formRevision = 0L
+    private val fieldRevisions = mutableMapOf<String, Long>()
+
+    private fun markFieldEdited(field: String) {
+        formRevision++
+        fieldRevisions[field] = formRevision
+    }
 
     // ==================== 初始化 ====================
 
     fun initialize() {
-        loadTargets()
+        if (!targetsLoaded && targetsJob?.isActive != true) loadTargets()
         loadStorageStatus()
     }
 
     // ==================== 目标值加载 ====================
 
     fun loadTargets() {
-        viewModelScope.launch {
-            val targets = repository.getTargets().first()
-                ?: NutrientConstants.getDefaultTargets()
-
+        targetsJob?.cancel()
+        val revision = if (!targetsLoaded && _uiState.value.targetsError != null) -1L else formRevision
+        targetsJob = viewModelScope.launchWithErrorFeedback("读取目标配置失败，请重试", { message ->
+            _uiState.update { it.copy(targetsError = message) }
+        }) {
+            val targets = repository.getTargets().first() ?: NutrientConstants.getDefaultTargets()
+            targetsLoaded = true
+            _uiState.update { it.copy(targetsError = null) }
+            val profile = targets.bodyProfile
+            fun edited(field: String) = (fieldRevisions[field] ?: Long.MIN_VALUE) > revision
             _uiState.update { state ->
                 state.copy(
-                    calories = UnitConverter.formatForInput(targets.calories),
-                    protein = UnitConverter.formatForInput(targets.protein),
-                    fat = UnitConverter.formatForInput(targets.fat),
-                    carbs = UnitConverter.formatForInput(targets.carbs),
-                    micronutrients = targets.micronutrients.map { mn ->
-                        MicroTargetRow(
-                            key = mn.key,
-                            name = mn.name,
-                            unit = mn.unit,
-                            target = UnitConverter.formatForInput(mn.target)
-                        )
-                    }
+                    calories = if (edited("calories")) state.calories else UnitConverter.formatForInput(targets.calories),
+                    protein = if (edited("protein")) state.protein else UnitConverter.formatForInput(targets.protein),
+                    fat = if (edited("fat")) state.fat else UnitConverter.formatForInput(targets.fat),
+                    carbs = if (edited("carbs")) state.carbs else UnitConverter.formatForInput(targets.carbs),
+                    micronutrients = if (edited("micronutrients")) state.micronutrients else targets.micronutrients.map { mn ->
+                        MicroTargetRow(mn.key, mn.name, mn.unit, UnitConverter.formatForInput(mn.target))
+                    },
+                    gender = if (edited("gender")) state.gender else profile?.gender,
+                    age = if (edited("age")) state.age else profile?.age?.toString() ?: "",
+                    height = if (edited("height")) state.height else profile?.heightCm?.toString() ?: "",
+                    weight = if (edited("weight")) state.weight else profile?.weightKg?.toString() ?: "",
+                    activityLevel = if (edited("activityLevel")) state.activityLevel else profile?.activityLevel
                 )
             }
-
-            // 加载身体档案
-            val profile = targets.bodyProfile
-            _uiState.update {
-                it.copy(
-                    gender = profile?.gender,
-                    age = profile?.age?.toString() ?: "",
-                    height = profile?.heightCm?.toString() ?: "",
-                    weight = profile?.weightKg?.toString() ?: "",
-                    activityLevel = profile?.activityLevel
-                )
+            if (listOf("calories", "protein", "fat", "carbs").none { edited(it) }) {
+                isAutoCalculatedFlag = targets.isAutoCalculated
             }
-            isAutoCalculatedFlag = targets.isAutoCalculated
         }
     }
 
     private fun loadStorageStatus() {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val status = repository.getStorageStatus()
             val ratio = if (status.limitSize > 0) {
                 (status.currentSize.toDouble() / status.limitSize * 100).toInt()
@@ -174,16 +180,41 @@ class SettingsViewModel(
 
     // ==================== 表单输入 ====================
 
-    fun onCaloriesInput(value: String) { _uiState.update { it.copy(calories = value) } }
-    fun onProteinInput(value: String) { _uiState.update { it.copy(protein = value) } }
-    fun onFatInput(value: String) { _uiState.update { it.copy(fat = value) } }
-    fun onCarbsInput(value: String) { _uiState.update { it.copy(carbs = value) } }
+    fun onCaloriesInput(value: String) {
+        markFieldEdited("calories")
+        _uiState.update { it.copy(calories = value) }
+    }
+    fun onProteinInput(value: String) {
+        markFieldEdited("protein")
+        _uiState.update { it.copy(protein = value) }
+    }
+    fun onFatInput(value: String) {
+        markFieldEdited("fat")
+        _uiState.update { it.copy(fat = value) }
+    }
+    fun onCarbsInput(value: String) {
+        markFieldEdited("carbs")
+        _uiState.update { it.copy(carbs = value) }
+    }
 
-    fun onGenderInput(value: Gender) { _uiState.update { it.copy(gender = value) } }
-    fun onAgeInput(value: String) { _uiState.update { it.copy(age = value) } }
-    fun onHeightInput(value: String) { _uiState.update { it.copy(height = value) } }
-    fun onWeightInput(value: String) { _uiState.update { it.copy(weight = value) } }
+    fun onGenderInput(value: Gender) {
+        markFieldEdited("gender")
+        _uiState.update { it.copy(gender = value) }
+    }
+    fun onAgeInput(value: String) {
+        markFieldEdited("age")
+        _uiState.update { it.copy(age = value) }
+    }
+    fun onHeightInput(value: String) {
+        markFieldEdited("height")
+        _uiState.update { it.copy(height = value) }
+    }
+    fun onWeightInput(value: String) {
+        markFieldEdited("weight")
+        _uiState.update { it.copy(weight = value) }
+    }
     fun onActivityLevelInput(value: ActivityLevel) {
+        markFieldEdited("activityLevel")
         _uiState.update { it.copy(activityLevel = value) }
     }
 
@@ -220,6 +251,7 @@ class SettingsViewModel(
      */
     fun applyCalculatedTargets() {
         val result = _uiState.value.calcResult ?: return
+        listOf("calories", "protein", "fat", "carbs").forEach(::markFieldEdited)
         val targets = result.targets
         isAutoCalculatedFlag = true
 
@@ -274,6 +306,7 @@ class SettingsViewModel(
     }
 
     fun addMicronutrient(item: NutrientConstantItem) {
+        markFieldEdited("micronutrients")
         _uiState.update { state ->
             if (state.micronutrients.any { it.key == item.key }) return@update state
             state.copy(
@@ -289,6 +322,7 @@ class SettingsViewModel(
     }
 
     fun onMicroTargetInput(index: Int, value: String) {
+        markFieldEdited("micronutrients")
         _uiState.update { state ->
             if (index !in state.micronutrients.indices) return@update state
             val list = state.micronutrients.toMutableList()
@@ -298,6 +332,7 @@ class SettingsViewModel(
     }
 
     fun deleteMicronutrient(index: Int) {
+        markFieldEdited("micronutrients")
         _uiState.update { state ->
             if (index !in state.micronutrients.indices) return@update state
             state.copy(micronutrients = state.micronutrients.filterIndexed { i, _ -> i != index })
@@ -307,6 +342,10 @@ class SettingsViewModel(
     // ==================== 保存目标 ====================
 
     fun saveTargets() {
+        if (!targetsLoaded || targetsJob?.isActive == true || _uiState.value.targetsError != null) {
+            sendEvent(UIEvent.ShowToast("请先完成目标配置的读取，失败时点击重试"))
+            return
+        }
         val state = _uiState.value
 
         // 校验宏量
@@ -363,7 +402,7 @@ class SettingsViewModel(
             isAutoCalculated = isAutoCalculatedFlag && bodyProfile != null
         )
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.setTargets(targets)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已保存"))
@@ -374,11 +413,11 @@ class SettingsViewModel(
     // ==================== 数据导出 ====================
 
     fun exportData(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = backupManager.exportData()
             if (!result.success) {
                 sendEvent(UIEvent.ShowToast(result.error.ifEmpty { "导出失败" }))
-                return@launch
+                return@launchWithErrorFeedback
             }
             try {
                 val clipboard =
@@ -452,7 +491,7 @@ class SettingsViewModel(
     fun confirmImport() {
         val importText = _uiState.value.importText
         if (importText.isBlank()) return
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("导入失败，请重试", { message -> _uiState.update { it.copy(importError = message) } }) {
             val result = backupManager.importData(importText)
             if (result.success) {
                 sendEvent(UIEvent.ShowToast(result.summary))
@@ -473,7 +512,7 @@ class SettingsViewModel(
 
     fun confirmClear() {
         _uiState.update { it.copy(showClearConfirm = false) }
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = repository.clearRecords()
             sendEvent(
                 UIEvent.ShowToast(
@@ -487,20 +526,5 @@ class SettingsViewModel(
 
     fun dismissClear() {
         _uiState.update { it.copy(showClearConfirm = false) }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(
-        private val repository: LocalStorageRepository,
-        private val backupManager: BackupManager
-    ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return SettingsViewModel(repository, backupManager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

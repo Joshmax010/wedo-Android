@@ -1,7 +1,6 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.model.FoodTemplate
@@ -10,16 +9,21 @@ import com.example.nutrition.domain.model.MealMicro
 import com.example.nutrition.domain.model.MealRecord
 import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.repository.LocalStorageRepository
+import com.example.nutrition.domain.usecase.DailyGoal
 import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.domain.usecase.FoodTemplateMapper
 import com.example.nutrition.domain.usecase.MealFormValidator
 import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.components.NutrientConstantItem
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -74,6 +78,7 @@ class RecordViewModel(
         val showNutrientPicker: Boolean = false,
         // 记录列表
         val recordList: List<MealRecord> = emptyList(),
+        val isLoadingRecords: Boolean = true,
         // 编辑状态
         val editingId: String? = null,
         // 保存为模板弹窗
@@ -84,7 +89,9 @@ class RecordViewModel(
         val deleteConfirm: DeleteTarget? = null,
         // 食物模板
         val templates: List<FoodTemplate> = emptyList(),
-        val templateSuggestions: List<FoodTemplate> = emptyList()
+        val templateSuggestions: List<FoodTemplate> = emptyList(),
+        val dataError: String? = null,
+        val templateError: String? = null
     ) {
         /** 当前模板库中已有的所有标签 */
         val allTemplateTags: List<String>
@@ -107,44 +114,55 @@ class RecordViewModel(
 
     // 编辑中的记录创建时间（不参与渲染，不进 UiState）
     private var editingCreatedAt: String? = null
+    private var initialized = false
+    private var initialMealArgument: MealKey? = null
+    private var initialDateArgument: String? = null
+    private var explicitMealSelection = false
+    private var formRevision = 0L
+
+    private var recordsJob: Job? = null
+    private var templatesJob: Job? = null
 
     init {
-        // 模板列表由 Flow 自动驱动
-        viewModelScope.launch {
-            repository.getAllFoodTemplates().collect { list ->
-                _uiState.update { it.copy(templates = list) }
-            }
-        }
-
-        // 日期+餐次变化时自动刷新记录列表
-        viewModelScope.launch {
-            _uiState
-                .map { it.currentDate to it.currentMeal }
-                .distinctUntilChanged()
-                .flatMapLatest { (date, meal) ->
-                    repository.getDayRecords(date).map { dayData -> dayData.getMeal(meal) }
-                }
-                .collect { records ->
-                    _uiState.update { it.copy(recordList = records) }
-                }
-        }
-
-        // 食物名或模板库变化时自动更新补全建议
-        viewModelScope.launch {
+        loadData()
+        // Reuse the already-observed template list for autocomplete.
+        viewModelScope.launchWithErrorFeedback("读取食物模板失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             combine(
                 _uiState.map { it.foodName }.distinctUntilChanged(),
-                repository.getAllFoodTemplates()
+                _uiState.map { it.templates }.distinctUntilChanged()
             ) { query, templates ->
                 val trimmed = query.trim()
-                if (trimmed.isEmpty()) {
-                    emptyList()
-                } else {
-                    templates
-                        .filter { it.name.contains(trimmed, ignoreCase = true) }
-                        .take(5)
+                if (trimmed.isEmpty()) emptyList()
+                else templates.filter { it.name.contains(trimmed, ignoreCase = true) }.take(5)
+            }.collect { suggestions -> _uiState.update { it.copy(templateSuggestions = suggestions) } }
+        }
+    }
+
+    fun loadData() {
+        if (templatesJob?.isActive != true) {
+            templatesJob = viewModelScope.launchWithErrorFeedback("读取食物模板失败，请重试", { message ->
+                _uiState.update { it.copy(templateError = message) }
+            }) {
+                repository.getAllFoodTemplates().collect { templates ->
+                    _uiState.update { it.copy(templates = templates, templateError = null) }
                 }
-            }.collect { suggestions ->
-                _uiState.update { it.copy(templateSuggestions = suggestions) }
+            }
+        }
+        if (recordsJob?.isActive != true) {
+            recordsJob = viewModelScope.launchWithErrorFeedback("读取饮食记录失败，请重试", { message ->
+                _uiState.update { it.copy(dataError = message, isLoadingRecords = false) }
+            }) {
+                _uiState.map { it.currentDate to it.currentMeal }.distinctUntilChanged()
+                    .flatMapLatest { (date, meal) ->
+                        _uiState.update { it.copy(isLoadingRecords = true, dataError = null) }
+                        repository.getDayRecords(date).map { Triple(date, meal, it.getMeal(meal)) }
+                    }.collect { (date, meal, records) ->
+                        _uiState.update { state ->
+                            if (state.currentDate == date && state.currentMeal == meal) {
+                                state.copy(recordList = records, dataError = null, isLoadingRecords = false)
+                            } else state
+                        }
+                    }
             }
         }
     }
@@ -152,11 +170,28 @@ class RecordViewModel(
     // ==================== 初始化 ====================
 
     /**
-     * 接收从首页传来的选中餐次（可选），重置表单
+     * 接收从首页传来的选中餐次（可选），保留恢复页面时的未保存表单
      */
-    fun initWithMeal(mealKey: MealKey?) {
-        resetForm()
-        _uiState.update { it.copy(currentMeal = mealKey ?: MealKey.fromCurrentTime()) }
+    fun initWithMeal(mealKey: MealKey?, date: String? = null) {
+        if (initialized && initialMealArgument == mealKey && initialDateArgument == date) return
+        initialMealArgument = mealKey
+        initialDateArgument = date
+        if (initialized && hasPendingForm()) return
+        initialized = true
+        explicitMealSelection = mealKey != null
+        _uiState.update { it.withSelection(date = date ?: it.currentDate, meal = mealKey ?: MealKey.fromCurrentTime()) }
+        loadData()
+    }
+
+    private fun UiState.withSelection(date: String = currentDate, meal: MealKey = currentMeal): UiState {
+        if (date == currentDate && meal == currentMeal) return this
+        return copy(currentDate = date, currentMeal = meal, recordList = emptyList(), isLoadingRecords = true, dataError = null)
+    }
+
+    private fun hasPendingForm(): Boolean = _uiState.value.run {
+        editingId != null || pendingTemplate != null || foodName.isNotBlank() || calories.isNotBlank() ||
+            protein.isNotBlank() || fat.isNotBlank() || carbs.isNotBlank() ||
+            formMicronutrients.isNotEmpty() || weight != "100"
     }
 
     // ==================== 日期跳转 ====================
@@ -165,7 +200,8 @@ class RecordViewModel(
      * 跳转到指定日期
      */
     fun pickDate(dateStr: String) {
-        _uiState.update { it.copy(currentDate = dateStr) }
+        _uiState.update { it.withSelection(date = dateStr) }
+        loadData()
     }
 
     // ==================== 时间刷新 ====================
@@ -174,36 +210,45 @@ class RecordViewModel(
      * 仅根据当前时间刷新默认餐次（不重置表单），用于页面 resume 时
      */
     fun refreshMealByTime() {
-        _uiState.update { it.copy(currentMeal = MealKey.fromCurrentTime()) }
+        if (explicitMealSelection || hasPendingForm()) return
+        _uiState.update { it.withSelection(meal = MealKey.fromCurrentTime()) }
+        loadData()
     }
 
     // ==================== 餐次切换 ====================
 
     fun switchMeal(meal: MealKey) {
+        explicitMealSelection = true
+        if (_uiState.value.currentMeal == meal) return
         resetForm()
-        _uiState.update { it.copy(currentMeal = meal) }
+        _uiState.update { it.withSelection(meal = meal) }
+        loadData()
     }
 
     // ==================== 日期切换 ====================
 
     fun prevDay() {
-        _uiState.update { it.copy(currentDate = DateUtils.prevDay(it.currentDate)) }
+        _uiState.update { it.withSelection(date = DateUtils.prevDay(it.currentDate)) }
+        loadData()
     }
 
     fun nextDay() {
         _uiState.update { state ->
             val next = DateUtils.nextDay(state.currentDate)
-            if (next <= DateUtils.today()) state.copy(currentDate = next) else state
+            if (next <= DateUtils.today()) state.withSelection(date = next) else state
         }
+        loadData()
     }
 
     // ==================== 表单输入 ====================
 
     fun onNameInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(foodName = value) }
     }
 
     fun onCaloriesInput(value: String) {
+        formRevision++
         _uiState.update { state ->
             state.copy(
                 calories = value,
@@ -213,6 +258,7 @@ class RecordViewModel(
     }
 
     fun onKiloJoulesInput(value: String) {
+        formRevision++
         _uiState.update { state ->
             state.copy(
                 kiloJoules = value,
@@ -222,18 +268,22 @@ class RecordViewModel(
     }
 
     fun onProteinInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(protein = value).withBaseFromActuals() }
     }
 
     fun onFatInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(fat = value).withBaseFromActuals() }
     }
 
     fun onCarbsInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(carbs = value).withBaseFromActuals() }
     }
 
     fun onWeightInput(value: String) {
+        formRevision++
         _uiState.update { it.copy(weight = value).withActualsFromBase() }
     }
 
@@ -296,6 +346,7 @@ class RecordViewModel(
     }
 
     fun addMicronutrient(item: NutrientConstantItem) {
+        formRevision++
         _uiState.update { state ->
             // 防止重复添加
             if (state.formMicronutrients.any { it.key == item.key }) return@update state
@@ -309,6 +360,7 @@ class RecordViewModel(
     }
 
     fun onMicroValueInput(index: Int, value: String) {
+        formRevision++
         _uiState.update { state ->
             if (index !in state.formMicronutrients.indices) return@update state
             val micros = state.formMicronutrients.toMutableList()
@@ -318,6 +370,7 @@ class RecordViewModel(
     }
 
     fun deleteMicronutrient(index: Int) {
+        formRevision++
         _uiState.update { state ->
             if (index !in state.formMicronutrients.indices) return@update state
             val key = state.formMicronutrients[index].key
@@ -370,7 +423,7 @@ class RecordViewModel(
         val tagged = template.copy(tags = state.saveAsTemplateTags.toList())
         dismissSaveTemplatePrompt()
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.saveFoodTemplate(tagged)) {
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已保存到模板"))
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
@@ -393,6 +446,7 @@ class RecordViewModel(
     // ==================== 保存记录 ====================
 
     fun saveRecord() {
+        val revision = formRevision
         val state = _uiState.value
         val error = MealFormValidator.validate(
             calories = state.calories,
@@ -436,7 +490,7 @@ class RecordViewModel(
         val currentDate = state.currentDate
         val currentMeal = state.currentMeal
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = if (isEdit) {
                 repository.updateRecord(currentDate, currentMeal, editingId!!, record)
             } else {
@@ -445,7 +499,13 @@ class RecordViewModel(
 
             if (result is Resource.Error) {
                 sendEvent(UIEvent.ShowToast(result.message))
-                return@launch
+                return@launchWithErrorFeedback
+            }
+
+            val feedback = savedFeedback(currentDate)
+            if (revision != formRevision) {
+                sendEvent(feedback)
+                return@launchWithErrorFeedback
             }
 
             // 新增记录且食物名未存在模板中时，询问是否保存为模板
@@ -453,17 +513,32 @@ class RecordViewModel(
                 _uiState.update {
                     it.copy(pendingTemplate = FoodTemplateMapper.fromMealRecord(record))
                 }
-                sendEvent(UIEvent.ShowToast("已保存"))
+                sendEvent(feedback)
             } else {
                 resetForm()
-                sendEvent(UIEvent.ShowToast("已保存"))
+                sendEvent(feedback)
             }
+        }
+    }
+
+    /** A feedback read failure cannot change a completed write into a save error. */
+    private suspend fun savedFeedback(date: String): UIEvent.SaveSuccess {
+        if (!DateUtils.isToday(date)) return UIEvent.SaveSuccess()
+        return try {
+            val targets = repository.getTargets().first() ?: NutrientConstants.getDefaultTargets()
+            val goal = DailyGoal.evaluate(repository.getDayRecords(date).first(), targets)
+            UIEvent.SaveSuccess(date, goal.macrosComplete, goal.dayComplete)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            UIEvent.SaveSuccess()
         }
     }
 
     // ==================== 编辑记录 ====================
 
     fun editRecord(recordId: String) {
+        formRevision++
         val record = _uiState.value.recordList.find { it.id == recordId } ?: return
 
         editingCreatedAt = record.createdAt
@@ -527,7 +602,7 @@ class RecordViewModel(
         val target = _uiState.value.deleteConfirm ?: return
         _uiState.update { it.copy(deleteConfirm = null) }
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             val result = repository.deleteRecord(target.dateStr, target.mealKey, target.id)
             when (result) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
@@ -543,6 +618,7 @@ class RecordViewModel(
     // ==================== 模板自动补全 ====================
 
     fun applyTemplate(template: FoodTemplate) {
+        formRevision++
         _uiState.update { state ->
             state.copy(
                 foodName = template.name,
@@ -572,6 +648,7 @@ class RecordViewModel(
     // ==================== 重置表单 ====================
 
     private fun resetForm() {
+        formRevision++
         editingCreatedAt = null
         _uiState.update { it.copyEmptyForm() }
     }
@@ -592,16 +669,4 @@ class RecordViewModel(
         baseFormMicronutrients = emptyList(),
         editingId = null
     )
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(RecordViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return RecordViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
 }

@@ -1,7 +1,15 @@
 package com.example.nutrition.ui.screens
 
 import android.app.DatePickerDialog
-import android.widget.Toast
+import com.example.nutrition.ui.components.ObserveUiEvents
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.nutrition.ui.components.NutritionField
+import com.example.nutrition.ui.navigation.LocalPageChrome
+import com.example.nutrition.ui.navigation.formRevealModifier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,12 +31,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.nutrition.ui.theme.nutritionFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +49,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.BodyRecord
 import com.example.nutrition.domain.usecase.DateUtils
@@ -52,7 +63,6 @@ import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.viewmodel.BodyStatsViewModel
-import com.example.nutrition.viewmodel.UIEvent
 import java.time.LocalDate
 
 /**
@@ -63,27 +73,26 @@ import java.time.LocalDate
 @Composable
 fun BodyStatsScreen(
     viewModel: BodyStatsViewModel = viewModel(
-        factory = BodyStatsViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { BodyStatsViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val context = LocalContext.current
 
     // 页面状态（单一 UiState）
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val chrome = LocalPageChrome.current
+    var editRequest by remember { mutableIntStateOf(0) }
+    SideEffect { chrome.editing = uiState.editing }
+    DisposableEffect(chrome) { onDispose { chrome.editing = false } }
 
     LaunchedEffect(Unit) {
         viewModel.initialize()
     }
 
     // 一次性事件（Toast）
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is UIEvent.ShowToast ->
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+    ObserveUiEvents(viewModel.events, blocked = uiState.deleteDate != null)
 
     Box(
         modifier = Modifier
@@ -94,8 +103,12 @@ fun BodyStatsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
                 .padding(16.dp)
         ) {
+            com.example.nutrition.ui.navigation.PageTitle("身体记录", "记录身体变化")
+            uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
+            uiState.dateError?.let { message -> DataLoadError(message) { viewModel.selectDate(uiState.selectedDate) } }
             // 图表
             if (uiState.records.size >= 2) {
                 Card(
@@ -104,7 +117,7 @@ fun BodyStatsScreen(
                         .padding(bottom = 12.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = BgCard),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Box(modifier = Modifier.padding(12.dp)) {
                         WeightLineChart(records = uiState.records)
@@ -113,7 +126,7 @@ fun BodyStatsScreen(
             }
 
             // 表单
-            BodyRecordFormCard(viewModel = viewModel, uiState = uiState)
+            BodyRecordFormCard(viewModel = viewModel, uiState = uiState, modifier = formRevealModifier(editRequest))
 
             // 历史记录
             if (uiState.records.isNotEmpty()) {
@@ -128,6 +141,7 @@ fun BodyStatsScreen(
                     uiState.records.reversed().forEach { record ->
                         BodyRecordItem(
                             record = record,
+                            onEdit = { viewModel.editRecord(record); editRequest++ },
                             onDelete = { viewModel.requestDelete(record.dateStr) }
                         )
                     }
@@ -160,22 +174,27 @@ fun BodyStatsScreen(
 @Composable
 private fun BodyRecordFormCard(
     viewModel: BodyStatsViewModel,
-    uiState: BodyStatsViewModel.UiState
+    uiState: BodyStatsViewModel.UiState,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "记录身体数据",
+                text = if (uiState.editing) "编辑身体记录" else "记录身体数据",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
+
+            if (uiState.editing) {
+                TextButton(onClick = viewModel::cancelEdit) { Text("取消编辑", color = Primary) }
+            }
 
             // 日期选择
             val contextForPicker = LocalContext.current
@@ -211,10 +230,10 @@ private fun BodyRecordFormCard(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
 
-            BodyFormField("体重", "kg", uiState.weight, viewModel::onWeightInput, true)
-            BodyFormField("体脂率", "%", uiState.bodyFat, viewModel::onBodyFatInput)
-            BodyFormField("肌肉量", "kg", uiState.muscle, viewModel::onMuscleInput)
-            BodyFormField("备注", "", uiState.note, viewModel::onNoteInput, keyboardType = KeyboardType.Text)
+            NutritionField("体重", "kg", uiState.weight, viewModel::onWeightInput, true)
+            NutritionField("体脂率", "%", uiState.bodyFat, viewModel::onBodyFatInput)
+            NutritionField("肌肉量", "kg", uiState.muscle, viewModel::onMuscleInput)
+            NutritionField("备注", "", uiState.note, viewModel::onNoteInput, keyboardType = KeyboardType.Text)
 
             Button(
                 onClick = { viewModel.saveRecord() },
@@ -224,71 +243,24 @@ private fun BodyRecordFormCard(
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
-                Text("保存", fontWeight = FontWeight.SemiBold)
+                Text(if (uiState.editing) "更新记录" else "保存记录", fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
-@Composable
-private fun BodyFormField(
-    label: String,
-    unit: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    required: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Decimal
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier.weight(0.35f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium
-            )
-            if (unit.isNotEmpty()) {
-                Text(" $unit", fontSize = 12.sp, color = TextPlaceholder)
-            }
-            if (required) {
-                Text(" *", fontSize = 14.sp, color = Error)
-            }
-        }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(0.65f),
-            placeholder = { Text(if (required) "必填" else "选填", fontSize = 13.sp, color = TextPlaceholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-    }
-}
 
 @Composable
 private fun BodyRecordItem(
     record: BodyRecord,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier

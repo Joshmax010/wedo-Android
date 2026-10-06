@@ -1,5 +1,6 @@
 package com.example.nutrition.data.repository
 
+import androidx.room.withTransaction
 import com.example.nutrition.data.local.db.NutritionDatabase
 import com.example.nutrition.data.local.entity.BodyRecordEntity
 import com.example.nutrition.data.local.entity.DayRecordEntity
@@ -20,8 +21,10 @@ import com.example.nutrition.domain.model.NutritionTargets
 import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.model.StorageStatus
 import com.example.nutrition.domain.repository.LocalStorageRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -51,13 +54,14 @@ class RoomLocalStorageRepository(
     private val metaDao = db.metaDao()
     private val foodTemplateDao = db.foodTemplateDao()
     private val bodyRecordDao = db.bodyRecordDao()
+    private val presetMutex = Mutex()
+    private var presetsInitialized = false
 
     // ==================== 营养目标 ====================
 
     override fun getTargets(): Flow<NutritionTargets?> {
         return targetDao.getFlow()
             .map { it?.toDomain() }
-            .catch { emit(null) }
     }
 
     override suspend fun setTargets(targets: NutritionTargets): Resource<Unit> {
@@ -67,6 +71,8 @@ class RoomLocalStorageRepository(
             targetDao.insert(entity)
             if (verifyTargetWrite(updated)) Resource.Success(Unit)
             else Resource.Error("保存目标失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存目标失败，请重试")
         }
@@ -81,13 +87,11 @@ class RoomLocalStorageRepository(
                     entity.dateStr to entity.toDomain()
                 }
             }
-            .catch { emit(emptyMap()) }
     }
 
     override fun getDayRecords(dateStr: String): Flow<DayRecords> {
         return recordDao.getByDateFlow(dateStr)
             .map { it?.toDomain() ?: DayRecords(dateStr = dateStr) }
-            .catch { emit(DayRecords(dateStr = dateStr)) }
     }
 
     override suspend fun setDayRecords(dateStr: String, dayData: DayRecords): Resource<Unit> {
@@ -96,6 +100,8 @@ class RoomLocalStorageRepository(
             recordDao.insert(entity)
             if (verifyDayRecordWrite(dateStr)) Resource.Success(Unit)
             else Resource.Error("保存失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
@@ -107,12 +113,15 @@ class RoomLocalStorageRepository(
         record: MealRecord
     ): Resource<Unit> {
         return try {
-            val dayData = getDayRecords(dateStr).first()
-            val updatedDay = dayData.withMeal(
-                mealKey,
-                dayData.getMeal(mealKey) + record
-            )
-            setDayRecords(dateStr, updatedDay)
+            db.withTransaction {
+                val dayData = recordDao.getByDate(dateStr)?.toDomain() ?: DayRecords(dateStr = dateStr)
+                val updatedDay = dayData.withMeal(mealKey, dayData.getMeal(mealKey) + record)
+                recordDao.insert(updatedDay.toEntity(dateStr))
+                check(verifyDayRecordWrite(dateStr))
+                Resource.Success(Unit)
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
@@ -125,41 +134,44 @@ class RoomLocalStorageRepository(
         newData: MealRecord
     ): Resource<Unit> {
         return try {
-            val dayData = getDayRecords(dateStr).first()
-            val mealRecords = dayData.getMeal(mealKey)
-            val index = mealRecords.indexOfFirst { it.id == recordId }
-            if (index == -1) return Resource.Error("记录不存在或已被删除")
-
-            val updated = newData.copy(
-                id = recordId,
-                createdAt = mealRecords[index].createdAt,
-                updatedAt = Instant.now().toString()
-            )
-            val newMealRecords = mealRecords.toMutableList().apply {
-                set(index, updated)
+            db.withTransaction {
+                val dayData = recordDao.getByDate(dateStr)?.toDomain() ?: DayRecords(dateStr = dateStr)
+                val mealRecords = dayData.getMeal(mealKey)
+                val index = mealRecords.indexOfFirst { it.id == recordId }
+                if (index == -1) return@withTransaction Resource.Error("记录不存在或已被删除")
+                val updated = newData.copy(
+                    id = recordId,
+                    createdAt = mealRecords[index].createdAt,
+                    updatedAt = Instant.now().toString()
+                )
+                val newMealRecords = mealRecords.toMutableList().apply { set(index, updated) }
+                val updatedDay = dayData.withMeal(mealKey, newMealRecords)
+                recordDao.insert(updatedDay.toEntity(dateStr))
+                check(verifyDayRecordWrite(dateStr))
+                Resource.Success(Unit)
             }
-            val updatedDay = dayData.withMeal(mealKey, newMealRecords)
-            setDayRecords(dateStr, updatedDay)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
     }
 
-    override suspend fun deleteRecord(
-        dateStr: String,
-        mealKey: MealKey,
-        recordId: String
-    ): Resource<Unit> {
+    override suspend fun deleteRecord(dateStr: String, mealKey: MealKey, recordId: String): Resource<Unit> {
         return try {
-            val dayData = getDayRecords(dateStr).first()
-            val mealRecords = dayData.getMeal(mealKey)
-            val filtered = mealRecords.filter { it.id != recordId }
-            if (filtered.size == mealRecords.size) {
-                return Resource.Error("记录不存在或已被删除")
+            db.withTransaction {
+                val dayData = recordDao.getByDate(dateStr)?.toDomain() ?: DayRecords(dateStr = dateStr)
+                val mealRecords = dayData.getMeal(mealKey)
+                val filtered = mealRecords.filter { it.id != recordId }
+                if (filtered.size == mealRecords.size) {
+                    return@withTransaction Resource.Error("记录不存在或已被删除")
+                }
+                recordDao.insert(dayData.withMeal(mealKey, filtered).toEntity(dateStr))
+                check(verifyDayRecordWrite(dateStr))
+                Resource.Success(Unit)
             }
-
-            val updatedDay = dayData.withMeal(mealKey, filtered)
-            setDayRecords(dateStr, updatedDay)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("删除失败，请重试")
         }
@@ -172,6 +184,8 @@ class RoomLocalStorageRepository(
             val remaining = recordDao.getAll()
             if (remaining.isEmpty()) Resource.Success(Unit)
             else Resource.Error("清空记录失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("清空记录失败，请重试")
         }
@@ -182,7 +196,6 @@ class RoomLocalStorageRepository(
     override fun getMeta(): Flow<AppMeta?> {
         return metaDao.getFlow()
             .map { it?.toDomain() }
-            .catch { emit(null) }
     }
 
     override suspend fun setMeta(meta: AppMeta): Resource<Unit> {
@@ -191,6 +204,8 @@ class RoomLocalStorageRepository(
             metaDao.insert(entity)
             if (verifyMetaWrite(meta)) Resource.Success(Unit)
             else Resource.Error("写入失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("写入失败，请重试")
         }
@@ -206,78 +221,65 @@ class RoomLocalStorageRepository(
         bodyRecords: List<BodyRecord>?
     ): Resource<Unit> {
         return try {
-            if (targets != null) {
-                targetDao.insert(targets.toEntity())
-                if (!verifyTargetWrite(targets)) return Resource.Error("数据校验失败，请重试")
-            }
-            if (records != null) {
-                for ((dateStr, dayData) in records) {
-                    recordDao.insert(dayData.toEntity(dateStr))
+            // 导入涉及多张表，写入与回读校验必须全部成功后再提交。
+            db.withTransaction {
+                if (targets != null) {
+                    targetDao.insert(targets.toEntity())
+                    if (!verifyTargetWrite(targets)) throw ImportVerificationException()
+                }
+                if (records != null) {
+                    for ((dateStr, dayData) in records) {
+                        recordDao.insert(dayData.toEntity(dateStr))
+                    }
+                }
+                if (meta != null) {
+                    metaDao.insert(meta.toEntity())
+                    if (!verifyMetaWrite(meta)) throw ImportVerificationException()
+                }
+                if (foodTemplates != null) {
+                    foodTemplateDao.deleteAllCustom()
+                    foodTemplates.forEach { foodTemplateDao.insert(it.toEntity()) }
+                }
+                if (bodyRecords != null) {
+                    bodyRecordDao.deleteAll()
+                    bodyRecords.forEach { bodyRecordDao.insert(it.toEntity()) }
                 }
             }
-            if (meta != null) {
-                metaDao.insert(meta.toEntity())
-                if (!verifyMetaWrite(meta)) return Resource.Error("数据校验失败，请重试")
-            }
-            if (foodTemplates != null) {
-                foodTemplateDao.deleteAllCustom()
-                foodTemplates.forEach { foodTemplateDao.insert(it.toEntity()) }
-            }
-            if (bodyRecords != null) {
-                bodyRecordDao.deleteAll()
-                bodyRecords.forEach { bodyRecordDao.insert(it.toEntity()) }
-            }
             Resource.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ImportVerificationException) {
+            Resource.Error("数据校验失败，请重试")
         } catch (e: Exception) {
             Resource.Error("数据导入失败，请重试")
         }
     }
 
+    // 校验失败必须抛出异常，让 withTransaction 回滚，不能在事务内正常返回 Error。
+    private class ImportVerificationException : Exception()
+
     // ==================== 存储状态 ====================
 
     override suspend fun getStorageStatus(): StorageStatus {
-        return try {
-            val path = db.openHelper.writableDatabase.path ?: return StorageStatus(0, 0, 0)
-            val file = java.io.File(path)
-            val currentSize = if (file.exists()) file.length() else 0L
-            // Room 数据库没有硬编码上限，以 100MB 为软上限参考
-            val limitSize = 100L * 1024 * 1024
-            val recordCount = recordDao.count()
-            StorageStatus(
-                currentSize = currentSize,
-                limitSize = limitSize,
-                keys = recordCount
-            )
-        } catch (e: Exception) {
-            StorageStatus(0, 0, 0)
-        }
+        val path = db.openHelper.writableDatabase.path ?: return StorageStatus(0, 0, 0)
+        val file = java.io.File(path)
+        val currentSize = if (file.exists()) file.length() else 0L
+        return StorageStatus(currentSize, 100L * 1024 * 1024, recordDao.count())
     }
 
     override suspend fun checkStorageCapacity(): CapacityStatus {
-        return try {
-            val status = getStorageStatus()
-            val ratio = if (status.limitSize > 0) {
-                status.currentSize.toDouble() / status.limitSize
-            } else {
-                0.0
-            }
-            val ok = ratio < CAPACITY_WARN_RATIO
-            val warn = ratio >= CAPACITY_WARN_RATIO && ratio < 1.0
-            val message = when {
-                ratio >= 1.0 -> "存储空间已满，请导出数据后清理"
-                ratio >= CAPACITY_WARN_RATIO -> "存储空间即将用尽，建议导出备份"
-                else -> ""
-            }
-            CapacityStatus(
-                ok = ok,
-                warn = warn,
-                currentSize = status.currentSize,
-                limitSize = status.limitSize,
-                message = message
-            )
-        } catch (e: Exception) {
-            CapacityStatus(ok = true, warn = false, currentSize = 0, limitSize = 0, message = "")
+        val status = getStorageStatus()
+        val ratio = if (status.limitSize > 0) status.currentSize.toDouble() / status.limitSize else 0.0
+        val message = when {
+            ratio >= 1.0 -> "存储空间已满，请导出数据后清理"
+            ratio >= CAPACITY_WARN_RATIO -> "存储空间即将用尽，建议导出备份"
+            else -> ""
         }
+        return CapacityStatus(
+            ok = ratio < CAPACITY_WARN_RATIO,
+            warn = ratio >= CAPACITY_WARN_RATIO && ratio < 1.0,
+            currentSize = status.currentSize, limitSize = status.limitSize, message = message
+        )
     }
 
     // ==================== 食物模板 ====================
@@ -289,28 +291,30 @@ class RoomLocalStorageRepository(
                 foodTemplateDao.getAllFlow()
                     .map { list -> list.map { it.toDomain() } }
             )
-        }.catch { emit(emptyList()) }
+        }
     }
 
-    private suspend fun ensurePresetTemplates() {
-        val currentPresets = com.example.nutrition.domain.constants.PresetFoodTemplates.getAll()
-        val currentPresetIds = currentPresets.map { it.id }.toSet()
-
-        // 删除已不在当前预设列表中的旧预设（避免改名/换 id 后重复）
-        foodTemplateDao.getAll()
-            .filter { it.isPreset && it.id !in currentPresetIds }
-            .forEach { foodTemplateDao.delete(it.id) }
-
-        // 插入新增预设，不覆盖用户已编辑的预设
-        currentPresets.forEach {
-            foodTemplateDao.insertOrIgnore(it.toEntity())
+    private suspend fun ensurePresetTemplates() = presetMutex.withLock {
+        if (presetsInitialized) return@withLock
+        db.withTransaction {
+            val currentPresets = com.example.nutrition.domain.constants.PresetFoodTemplates.getAll()
+            val currentPresetIds = currentPresets.map { it.id }.toSet()
+            foodTemplateDao.getAll()
+                .filter { it.isPreset && it.id !in currentPresetIds }
+                .forEach { foodTemplateDao.delete(it.id) }
+            // Preserve user edits while supplementing new presets.
+            currentPresets.forEach { foodTemplateDao.insertOrIgnore(it.toEntity()) }
         }
+        // Failed or cancelled initialization remains retryable.
+        presetsInitialized = true
     }
 
     override suspend fun saveFoodTemplate(template: FoodTemplate): Resource<Unit> {
         return try {
             foodTemplateDao.insert(template.toEntity())
             Resource.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存模板失败")
         }
@@ -323,6 +327,8 @@ class RoomLocalStorageRepository(
             if (template.isPreset) return Resource.Error("预设模板不可删除")
             if (foodTemplateDao.delete(id) > 0) Resource.Success(Unit)
             else Resource.Error("删除失败，请重试")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("删除模板失败")
         }
@@ -333,19 +339,19 @@ class RoomLocalStorageRepository(
     override fun getAllBodyRecords(): Flow<List<BodyRecord>> {
         return bodyRecordDao.getAllFlow()
             .map { list -> list.map { it.toDomain() } }
-            .catch { emit(emptyList()) }
     }
 
     override fun getBodyRecord(dateStr: String): Flow<BodyRecord?> {
         return bodyRecordDao.getByDateFlow(dateStr)
             .map { it?.toDomain() }
-            .catch { emit(null) }
     }
 
     override suspend fun saveBodyRecord(record: BodyRecord): Resource<Unit> {
         return try {
             bodyRecordDao.insert(record.toEntity())
             Resource.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("保存失败，请重试")
         }
@@ -355,6 +361,8 @@ class RoomLocalStorageRepository(
         return try {
             if (bodyRecordDao.delete(dateStr) > 0) Resource.Success(Unit)
             else Resource.Error("记录不存在或已被删除")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("删除失败，请重试")
         }
@@ -384,16 +392,8 @@ class RoomLocalStorageRepository(
     // ==================== Entity <-> Domain 转换 ====================
 
     private fun TargetEntity.toDomain(): NutritionTargets {
-        val micros: List<MicronutrientTarget> = try {
-            json.decodeFromString(micronutrientsJson)
-        } catch (_: Exception) {
-            emptyList()
-        }
-        val bodyProfile: BodyProfile? = try {
-            bodyProfileJson?.let { json.decodeFromString<BodyProfile>(it) }
-        } catch (_: Exception) {
-            null
-        }
+        val micros: List<MicronutrientTarget> = json.decodeFromString(micronutrientsJson)
+        val bodyProfile = bodyProfileJson?.let { json.decodeFromString<BodyProfile>(it) }
         return NutritionTargets(
             calories = calories,
             protein = protein,
@@ -423,10 +423,10 @@ class RoomLocalStorageRepository(
     private fun DayRecordEntity.toDomain(): DayRecords {
         return DayRecords(
             dateStr = dateStr,
-            breakfast = try { json.decodeFromString(breakfastJson) } catch (_: Exception) { emptyList() },
-            lunch = try { json.decodeFromString(lunchJson) } catch (_: Exception) { emptyList() },
-            dinner = try { json.decodeFromString(dinnerJson) } catch (_: Exception) { emptyList() },
-            snack = try { json.decodeFromString(snackJson) } catch (_: Exception) { emptyList() }
+            breakfast = json.decodeFromString(breakfastJson),
+            lunch = json.decodeFromString(lunchJson),
+            dinner = json.decodeFromString(dinnerJson),
+            snack = json.decodeFromString(snackJson)
         )
     }
 
@@ -462,16 +462,8 @@ class RoomLocalStorageRepository(
     }
 
     private fun FoodTemplateEntity.toDomain(): FoodTemplate {
-        val micros: List<MealMicro> = try {
-            json.decodeFromString(micronutrientsJson)
-        } catch (_: Exception) {
-            emptyList()
-        }
-        val tags: List<String> = try {
-            json.decodeFromString(tagsJson)
-        } catch (_: Exception) {
-            emptyList()
-        }
+        val micros: List<MealMicro> = json.decodeFromString(micronutrientsJson)
+        val tags: List<String> = json.decodeFromString(tagsJson)
         return FoodTemplate(
             id = id,
             name = name,

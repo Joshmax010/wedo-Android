@@ -1,6 +1,7 @@
 package com.example.nutrition.ui.screens
 
-import android.widget.Toast
+import com.example.nutrition.ui.components.ObserveUiEvents
+import com.example.nutrition.ui.components.NutritionField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -27,29 +28,29 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
+import com.example.nutrition.ui.theme.nutritionFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.ui.theme.BgCard
@@ -60,7 +61,6 @@ import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.viewmodel.FoodTemplateViewModel
-import com.example.nutrition.viewmodel.UIEvent
 
 /**
  * 食物模板管理页
@@ -70,87 +70,57 @@ import com.example.nutrition.viewmodel.UIEvent
 @Composable
 fun FoodTemplateScreen(
     viewModel: FoodTemplateViewModel = viewModel(
-        factory = FoodTemplateViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { FoodTemplateViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
-    val context = LocalContext.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.initialize()
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is UIEvent.ShowToast ->
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+    ObserveUiEvents(viewModel.events, blocked = uiState.showAddDialog || uiState.showFilterDialog || uiState.deleteId != null)
 
-    Scaffold(
-        topBar = {
-            Column {
-                SearchBar(
-                    query = uiState.searchQuery,
-                    onQueryChange = viewModel::onSearchQueryChange
-                )
-                QuickTagFilterBar(
-                    availableTags = viewModel.availableTags(),
-                    selectedTags = uiState.selectedFilterTags,
-                    onTagToggle = { viewModel.toggleFilterTag(it) },
-                    onOpenAll = { viewModel.openFilterDialog() }
-                )
-                SelectedTagRow(
-                    selectedTags = uiState.selectedFilterTags,
-                    onTagRemove = { viewModel.toggleFilterTag(it) },
-                    onClear = { viewModel.clearFilterTags() }
-                )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.openAddDialog() },
-                containerColor = Primary,
-                contentColor = androidx.compose.ui.graphics.Color.White
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "新增模板")
-            }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BgMain)
-                .padding(paddingValues)
+    Box(Modifier.fillMaxSize().background(BgMain)) {
+        val filtered = viewModel.filteredTemplates()
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = com.example.nutrition.ui.navigation.LocalPageContentPadding.current
         ) {
-            val filtered = viewModel.filteredTemplates()
-            if (filtered.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "暂无匹配模板",
-                        fontSize = 14.sp,
-                        color = TextPlaceholder
+            item {
+                Column {
+                    com.example.nutrition.ui.navigation.PageTitle("食物模板", "熟悉的食物，更快地录入", modifier = Modifier.padding(horizontal = 16.dp)) {
+                        androidx.compose.material3.IconButton(onClick = { viewModel.openAddDialog() }) {
+                            Icon(Icons.Default.Add, contentDescription = "新增食物模板", tint = Primary)
+                        }
+                    }
+                    uiState.dataError?.let { DataLoadError(it, viewModel::initialize) }
+                    SearchBar(query = uiState.searchQuery, onQueryChange = viewModel::onSearchQueryChange)
+                    QuickTagFilterBar(
+                        availableTags = viewModel.availableTags(), selectedTags = uiState.selectedFilterTags,
+                        onTagToggle = viewModel::toggleFilterTag, onOpenAll = viewModel::openFilterDialog
+                    )
+                    SelectedTagRow(
+                        selectedTags = uiState.selectedFilterTags,
+                        onTagRemove = viewModel::toggleFilterTag, onClear = viewModel::clearFilterTags
                     )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filtered, key = { it.id }) { template ->
-                        TemplateItem(
-                            template = template,
-                            onEdit = { viewModel.openEditDialog(template) },
-                            onDelete = { viewModel.requestDelete(it) }
-                        )
+            }
+            if (filtered.isEmpty() && uiState.dataError == null) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                        Text("暂无匹配模板", color = TextPlaceholder)
                     }
-                    item { Box(modifier = Modifier.height(80.dp)) }
+                }
+            }
+            items(filtered, key = { it.id }) { template ->
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    TemplateItem(template = template,
+                        onEdit = { viewModel.openEditDialog(template) },
+                        onDelete = viewModel::requestDelete)
                 }
             }
         }
@@ -223,7 +193,7 @@ private fun QuickTagFilterBar(
                     Text(
                         text = tag,
                         fontSize = 12.sp,
-                        color = if (isSelected) androidx.compose.ui.graphics.Color.White else TextPrimary,
+                        color = if (isSelected) com.example.nutrition.ui.theme.TextInverse else TextPrimary,
                         fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                     )
                 }
@@ -287,12 +257,12 @@ private fun SelectedTagRow(
                     Text(
                         text = tag,
                         fontSize = 12.sp,
-                        color = androidx.compose.ui.graphics.Color.White
+                        color = com.example.nutrition.ui.theme.TextInverse
                     )
                     Text(
                         text = "×",
                         fontSize = 14.sp,
-                        color = androidx.compose.ui.graphics.Color.White,
+                        color = com.example.nutrition.ui.theme.TextInverse,
                         modifier = Modifier.clickable { onTagRemove(tag) }
                     )
                 }
@@ -332,11 +302,8 @@ private fun SearchBar(
             },
             singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(8.dp)
+            colors = nutritionFieldColors(),
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }
@@ -350,9 +317,9 @@ private fun TemplateItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -484,7 +451,7 @@ private fun FilterDialog(viewModel: FoodTemplateViewModel, uiState: FoodTemplate
                                 Text(
                                     text = tag,
                                     fontSize = 13.sp,
-                                    color = if (isSelected) androidx.compose.ui.graphics.Color.White else TextPrimary,
+                                    color = if (isSelected) com.example.nutrition.ui.theme.TextInverse else TextPrimary,
                                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                                 )
                             }
@@ -512,18 +479,18 @@ private fun AddTemplateDialog(viewModel: FoodTemplateViewModel, uiState: FoodTem
         onDismissRequest = { viewModel.closeAddDialog() },
         title = {
             Text(
-                text = if (uiState.editingId != null) "编辑自定义模板" else "新增自定义模板",
+                text = if (uiState.editingId != null) "编辑模板" else "新增自定义模板",
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
         },
         text = {
             Column {
-                TemplateFormField("名称", uiState.templateName, viewModel::onNameInput, KeyboardType.Text)
-                TemplateFormField("热量", uiState.templateCalories, viewModel::onCaloriesInput, KeyboardType.Decimal)
-                TemplateFormField("蛋白质", uiState.templateProtein, viewModel::onProteinInput, KeyboardType.Decimal)
-                TemplateFormField("脂肪", uiState.templateFat, viewModel::onFatInput, KeyboardType.Decimal)
-                TemplateFormField("碳水", uiState.templateCarbs, viewModel::onCarbsInput, KeyboardType.Decimal)
+                NutritionField(label = "名称", value = uiState.templateName, onValueChange = viewModel::onNameInput, keyboardType = KeyboardType.Text, placeholder = "")
+                NutritionField(label = "热量", value = uiState.templateCalories, onValueChange = viewModel::onCaloriesInput, keyboardType = KeyboardType.Decimal, placeholder = "")
+                NutritionField(label = "蛋白质", value = uiState.templateProtein, onValueChange = viewModel::onProteinInput, keyboardType = KeyboardType.Decimal, placeholder = "")
+                NutritionField(label = "脂肪", value = uiState.templateFat, onValueChange = viewModel::onFatInput, keyboardType = KeyboardType.Decimal, placeholder = "")
+                NutritionField(label = "碳水", value = uiState.templateCarbs, onValueChange = viewModel::onCarbsInput, keyboardType = KeyboardType.Decimal, placeholder = "")
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -584,12 +551,12 @@ private fun TemplateTagEditor(viewModel: FoodTemplateViewModel, uiState: FoodTem
                         Text(
                             text = tag,
                             fontSize = 12.sp,
-                            color = androidx.compose.ui.graphics.Color.White
+                            color = com.example.nutrition.ui.theme.TextInverse
                         )
                         Text(
                             text = "×",
                             fontSize = 14.sp,
-                            color = androidx.compose.ui.graphics.Color.White,
+                            color = com.example.nutrition.ui.theme.TextInverse,
                             modifier = Modifier.clickable { viewModel.removeTemplateTag(tag) }
                         )
                     }
@@ -610,10 +577,7 @@ private fun TemplateTagEditor(viewModel: FoodTemplateViewModel, uiState: FoodTem
                 placeholder = { Text("输入新标签，如 高蛋白", fontSize = 13.sp, color = TextPlaceholder) },
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
             OutlinedButton(
@@ -657,41 +621,6 @@ private fun TemplateTagEditor(viewModel: FoodTemplateViewModel, uiState: FoodTem
     }
 }
 
-@Composable
-private fun TemplateFormField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    keyboardType: KeyboardType
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = TextPrimary,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(0.3f)
-        )
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(0.7f),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-    }
-}
 
 private fun formatNum(value: Double): String {
     return if (value == value.toLong().toDouble()) {

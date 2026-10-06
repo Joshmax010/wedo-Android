@@ -68,6 +68,7 @@ fun BarProgress(
     overflowColor: Color = Error,
     warningThreshold: Float = 80f
 ) {
+    val trackColor = com.example.nutrition.ui.theme.BgTag
     // 计算进度
     val rawPercent = if (target > 0) (current / target * 100).toInt() else 0
     val isOverflow = rawPercent > 100
@@ -97,16 +98,16 @@ fun BarProgress(
     }
 
     // 条纹动画偏移（超量时启用）
-    val infiniteTransition = rememberInfiniteTransition(label = "stripe")
-    val stripeOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 28f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "stripeOffset"
-    )
+    val stripeOffset = if (isOverflow) {
+        val transition = rememberInfiniteTransition(label = "stripe")
+        val offset by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 28f,
+            animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
+            label = "stripeOffset"
+        )
+        offset
+    } else 0f
 
     // 尺寸参数
     val trackHeight: Dp = if (mini) 5.dp else 8.dp
@@ -135,7 +136,7 @@ fun BarProgress(
                     text = formatNumber(displayCurrent),
                     fontSize = valueFontSize,
                     fontWeight = FontWeight.SemiBold,
-                    color = barColor
+                    color = TextPrimary
                 )
                 Text(
                     text = "/",
@@ -160,7 +161,7 @@ fun BarProgress(
             // 轨道背景
             Canvas(modifier = Modifier.fillMaxWidth().height(trackHeight)) {
                 drawRect(
-                    color = Color(0xFFF0F0F0),
+                    color = trackColor,
                     size = Size(this.size.width, this.size.height)
                 )
             }

@@ -1,18 +1,18 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.Calculator
 import com.example.nutrition.domain.usecase.DateUtils
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -78,7 +78,8 @@ class WeeklyViewModel(
         val summary: SummaryGrid? = null,
         val nutrientRates: List<NutrientRateRow> = emptyList(),
         val microTable: List<MicroRow> = emptyList(),
-        val reportText: String = ""
+        val reportText: String = "",
+        val dataError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -90,68 +91,74 @@ class WeeklyViewModel(
 
     // ==================== 数据加载 ====================
 
+    private var loadJob: Job? = null
+
     fun loadData() {
-        viewModelScope.launch {
-            val weekDates = getWeekDates(baseDate)
-            val weekRange = DateUtils.formatWeekRange(baseDate)
+        loadJob?.cancel()
+        val monday = baseDate
+        loadJob = viewModelScope.launchWithErrorFeedback("读取周报数据失败，请重试", { message ->
+            _uiState.update { it.copy(dataError = message) }
+        }) {
+            val weekDates = getWeekDates(monday)
+            val weekRange = DateUtils.formatWeekRange(monday)
 
             // 读取目标配置
-            val targets = repository.getTargets().first()
-                ?: NutrientConstants.getDefaultTargets()
+            combine(repository.getTargets(), repository.getAllRecords()) { targets, records ->
+                (targets ?: NutrientConstants.getDefaultTargets()) to records
+            }.collect { (targets, allRecords) ->
+                val weekSummary = Calculator.calcWeekSummary(allRecords, weekDates, targets)
 
-            // 读取全部记录并计算周报摘要
-            val allRecords = repository.getAllRecords().first()
-            val weekSummary = Calculator.calcWeekSummary(allRecords, weekDates, targets)
-
-            _uiState.update {
-                it.copy(
-                    weekRange = weekRange,
-                    targetCalories = targets.calories,
-                    hasData = weekSummary.avgCalories > 0 ||
-                        weekSummary.dailyData.any { day -> day.calories > 0 },
-                    // 热量折线图数据
-                    caloriePoints = weekDates.mapIndexed { index, dateStr ->
-                        val day = weekSummary.dailyData[index]
-                        CaloriePoint(
-                            label = dateStr.substring(5), // MM-dd
-                            calories = day.calories,
-                            dayOfWeek = DAY_NAMES[index]
-                        )
-                    },
-                    // 营养素柱状图数据
-                    nutrientBars = weekDates.mapIndexed { index, dateStr ->
-                        val day = weekSummary.dailyData[index]
-                        NutrientBar(
-                            label = dateStr.substring(5),
-                            protein = day.protein,
-                            fat = day.fat,
-                            carbs = day.carbs
-                        )
-                    },
-                    // 摘要四宫格
-                    summary = SummaryGrid(
-                        avgCalories = weekSummary.avgCalories,
-                        avgProtein = weekSummary.avgProtein,
-                        achievementDays = weekSummary.achievementDays,
-                        totalGap = weekSummary.totalGap
-                    ),
-                    // 营养素达标率
-                    nutrientRates = weekSummary.nutrientRates.map { rate ->
-                        NutrientRateRow(name = rate.name, rate = rate.rate)
-                    },
-                    // 微量营养素表格
-                    microTable = weekSummary.microTable.map { row ->
-                        MicroRow(
-                            name = row.name,
-                            unit = row.unit,
-                            dailyAvg = row.dailyAvg,
-                            target = row.target,
-                            rate = row.rate
-                        )
-                    },
-                    // 周报文本
-                    reportText = Calculator.generateWeekReportText(weekSummary, weekRange)
-                )
+                _uiState.update {
+                    it.copy(
+                        dataError = null,
+                        weekRange = weekRange,
+                        targetCalories = targets.calories,
+                        hasData = weekSummary.avgCalories > 0 ||
+                            weekSummary.dailyData.any { day -> day.calories > 0 },
+                        // 热量折线图数据
+                        caloriePoints = weekDates.mapIndexed { index, dateStr ->
+                            val day = weekSummary.dailyData[index]
+                            CaloriePoint(
+                                label = dateStr.substring(5), // MM-dd
+                                calories = day.calories,
+                                dayOfWeek = DAY_NAMES[index]
+                            )
+                        },
+                        // 营养素柱状图数据
+                        nutrientBars = weekDates.mapIndexed { index, dateStr ->
+                            val day = weekSummary.dailyData[index]
+                            NutrientBar(
+                                label = dateStr.substring(5),
+                                protein = day.protein,
+                                fat = day.fat,
+                                carbs = day.carbs
+                            )
+                        },
+                        // 摘要四宫格
+                        summary = SummaryGrid(
+                            avgCalories = weekSummary.avgCalories,
+                            avgProtein = weekSummary.avgProtein,
+                            achievementDays = weekSummary.achievementDays,
+                            totalGap = weekSummary.totalGap
+                        ),
+                        // 营养素达标率
+                        nutrientRates = weekSummary.nutrientRates.map { rate ->
+                            NutrientRateRow(name = rate.name, rate = rate.rate)
+                        },
+                        // 微量营养素表格
+                        microTable = weekSummary.microTable.map { row ->
+                            MicroRow(
+                                name = row.name,
+                                unit = row.unit,
+                                dailyAvg = row.dailyAvg,
+                                target = row.target,
+                                rate = row.rate
+                            )
+                        },
+                        // 周报文本
+                        reportText = Calculator.generateWeekReportText(weekSummary, weekRange)
+                    )
+                }
             }
         }
     }
@@ -182,17 +189,5 @@ class WeeklyViewModel(
 
     companion object {
         private val DAY_NAMES = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(WeeklyViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return WeeklyViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

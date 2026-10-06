@@ -24,8 +24,8 @@ android {
         applicationId = "com.example.nutrition"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.4.3"
+        versionCode = 6
+        versionName = "1.4.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -94,9 +94,6 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
-
-    // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // JSON Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

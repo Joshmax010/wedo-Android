@@ -1,6 +1,13 @@
 package com.example.nutrition.ui.screens
 
-import android.widget.Toast
+import com.example.nutrition.ui.components.ObserveUiEvents
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.nutrition.ui.components.NutritionField
+import com.example.nutrition.ui.navigation.LocalPageChrome
+import com.example.nutrition.ui.navigation.formRevealModifier
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,29 +33,33 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.ScrollableTabRow
+import com.example.nutrition.ui.theme.nutritionFieldColors
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.MealKey
@@ -63,7 +74,6 @@ import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.viewmodel.RecordViewModel
-import com.example.nutrition.viewmodel.UIEvent
 import java.time.LocalDate
 
 /**
@@ -74,12 +84,23 @@ import java.time.LocalDate
 @Composable
 fun RecordScreen(
     initialMeal: MealKey? = null,
+    initialDate: String? = null,
     viewModel: RecordViewModel = viewModel(
-        factory = RecordViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { RecordViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val context = LocalContext.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
+    com.example.nutrition.ui.navigation.TrackRootTitleScroll { scrollState.value.toFloat() }
+    val chrome = LocalPageChrome.current
+    var editRequest by remember { mutableIntStateOf(0) }
+    SideEffect {
+        chrome.editing = uiState.editingId != null
+    }
+    DisposableEffect(chrome) { onDispose { chrome.editing = false } }
 
     // 页面 resume 时按当前时间刷新默认餐次（首次 resume 由 initialMeal 接管，跳过避免覆盖）
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -99,19 +120,12 @@ fun RecordScreen(
     }
 
     // 首次加载：应用从首页传入的餐次（为 null 时按当前时间推断）
-    LaunchedEffect(Unit) {
-        viewModel.initWithMeal(initialMeal)
+    LaunchedEffect(viewModel, initialMeal, initialDate) {
+        viewModel.initWithMeal(initialMeal, initialDate)
     }
 
     // 一次性事件（Toast）
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is UIEvent.ShowToast ->
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+    ObserveUiEvents(viewModel.events, blocked = uiState.pendingTemplate != null || uiState.deleteConfirm != null || uiState.showNutrientPicker)
 
     Box(
         modifier = Modifier
@@ -121,101 +135,112 @@ fun RecordScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
         ) {
-            // ========== 餐次 Tab ==========
-            MealTabs(
-                currentMeal = uiState.currentMeal,
-                onMealSelected = { viewModel.switchMeal(it) }
-            )
-
-            // ========== 日期选择 ==========
-            DateBar(
-                dateStr = uiState.currentDate,
-                onPrev = { viewModel.prevDay() },
-                onNext = { viewModel.nextDay() },
-                onDateClick = {
-                    val parsed = DateUtils.parseDate(uiState.currentDate)
-                    DatePickerDialog(
-                        context,
-                        { _, year, month, dayOfMonth ->
-                            val selected = LocalDate.of(year, month + 1, dayOfMonth)
-                            viewModel.pickDate(DateUtils.formatDate(selected))
-                        },
-                        parsed.year,
-                        parsed.monthValue - 1,
-                        parsed.dayOfMonth
-                    ).apply {
-                        datePicker.maxDate = System.currentTimeMillis()
-                    }.show()
-                }
-            )
-
-            // ========== 录入表单 ==========
-            FormCard(
-                foodName = uiState.foodName,
-                weight = uiState.weight,
-                calories = uiState.calories,
-                kiloJoules = uiState.kiloJoules,
-                protein = uiState.protein,
-                fat = uiState.fat,
-                carbs = uiState.carbs,
-                formMicronutrients = uiState.formMicronutrients,
-                editingId = uiState.editingId,
-                templateSuggestions = uiState.templateSuggestions,
-                onNameInput = viewModel::onNameInput,
-                onWeightInput = viewModel::onWeightInput,
-                onCaloriesInput = viewModel::onCaloriesInput,
-                onKiloJoulesInput = viewModel::onKiloJoulesInput,
-                onProteinInput = viewModel::onProteinInput,
-                onFatInput = viewModel::onFatInput,
-                onCarbsInput = viewModel::onCarbsInput,
-                onMicroValueInput = viewModel::onMicroValueInput,
-                onDeleteMicro = viewModel::deleteMicronutrient,
-                onTogglePicker = { viewModel.toggleNutrientPicker() },
-                onSave = { viewModel.saveRecord() },
-                onCancelEdit = { viewModel.cancelEdit() },
-                onTemplateSelected = { viewModel.applyTemplate(it) }
-            )
-
-            // ========== 记录列表标题 ==========
-            Text(
-                text = "${uiState.currentDate} ${uiState.currentMeal.displayName}记录",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-
-            // ========== 记录列表 ==========
-            if (uiState.recordList.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "暂无记录，开始录入第一餐吧",
-                        fontSize = 14.sp,
-                        color = TextPlaceholder
+            com.example.nutrition.ui.navigation.PageTitle("录入", "按餐记录，按克重换算", modifier = Modifier.padding(horizontal = 16.dp))
+            uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
+            uiState.templateError?.let { DataLoadError(it, viewModel::loadData) }
+            Column {
+                    // ========== 餐次 Tab ==========
+                    MealTabs(
+                        currentMeal = uiState.currentMeal,
+                        onMealSelected = { viewModel.switchMeal(it) }
                     )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    uiState.recordList.forEach { record ->
-                        RecordItem(
-                            record = record,
-                            isDismissed = uiState.deleteConfirm?.id == record.id,
-                            onEdit = { id -> viewModel.editRecord(id) },
-                            onDelete = { id -> viewModel.requestDelete(id) }
+
+                    // ========== 日期选择 ==========
+                    DateBar(
+                        dateStr = uiState.currentDate,
+                        onPrev = { viewModel.prevDay() },
+                        onNext = { viewModel.nextDay() },
+                        onDateClick = {
+                            val parsed = DateUtils.parseDate(uiState.currentDate)
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    val selected = LocalDate.of(year, month + 1, dayOfMonth)
+                                    viewModel.pickDate(DateUtils.formatDate(selected))
+                                },
+                                parsed.year,
+                                parsed.monthValue - 1,
+                                parsed.dayOfMonth
+                            ).apply {
+                                datePicker.maxDate = System.currentTimeMillis()
+                            }.show()
+                        }
+                    )
+
+            }
+            Column {
+                // ========== 录入表单 ==========
+                FormCard(
+                    foodName = uiState.foodName,
+                    weight = uiState.weight,
+                    calories = uiState.calories,
+                    kiloJoules = uiState.kiloJoules,
+                    protein = uiState.protein,
+                    fat = uiState.fat,
+                    carbs = uiState.carbs,
+                    formMicronutrients = uiState.formMicronutrients,
+                    editingId = uiState.editingId,
+                    templateSuggestions = uiState.templateSuggestions,
+                    onNameInput = viewModel::onNameInput,
+                    onWeightInput = viewModel::onWeightInput,
+                    onCaloriesInput = viewModel::onCaloriesInput,
+                    onKiloJoulesInput = viewModel::onKiloJoulesInput,
+                    onProteinInput = viewModel::onProteinInput,
+                    onFatInput = viewModel::onFatInput,
+                    onCarbsInput = viewModel::onCarbsInput,
+                    onMicroValueInput = viewModel::onMicroValueInput,
+                    onDeleteMicro = viewModel::deleteMicronutrient,
+                    onTogglePicker = { viewModel.toggleNutrientPicker() },
+                    onSave = { viewModel.saveRecord() },
+                    onCancelEdit = { viewModel.cancelEdit() },
+                    onTemplateSelected = { viewModel.applyTemplate(it) },
+                    modifier = formRevealModifier(editRequest)
+                )
+
+                // ========== 记录列表标题 ==========
+                Text(
+                    text = "${uiState.currentDate} ${uiState.currentMeal.displayName}记录",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+
+                // ========== 记录列表 ==========
+                if (uiState.recordList.isEmpty() && uiState.dataError == null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (uiState.isLoadingRecords) "正在读取记录…" else "暂无记录，开始录入第一餐吧",
+                            fontSize = 14.sp,
+                            color = TextPlaceholder
                         )
                     }
-                    // 底部留白
-                    Box(modifier = Modifier.height(24.dp))
+                } else {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        uiState.recordList.forEach { record ->
+                            key(record.id) {
+                                RecordItem(
+                                    record = record,
+                                    isDismissed = uiState.deleteConfirm?.id == record.id,
+                                    onEdit = { id -> viewModel.editRecord(id); editRequest++ },
+                                    onDelete = { id -> viewModel.requestDelete(id) }
+                                )
+                            }
+                        }
+                        // 底部留白
+                        Box(modifier = Modifier.height(24.dp))
+                    }
                 }
             }
         }
@@ -311,12 +336,12 @@ private fun SaveAsTemplateTagEditor(viewModel: RecordViewModel, uiState: RecordV
                         Text(
                             text = tag,
                             fontSize = 12.sp,
-                            color = androidx.compose.ui.graphics.Color.White
+                            color = com.example.nutrition.ui.theme.TextInverse
                         )
                         Text(
                             text = "×",
                             fontSize = 14.sp,
-                            color = androidx.compose.ui.graphics.Color.White,
+                            color = com.example.nutrition.ui.theme.TextInverse,
                             modifier = Modifier.clickable { viewModel.removeSaveAsTemplateTag(tag) }
                         )
                     }
@@ -336,10 +361,7 @@ private fun SaveAsTemplateTagEditor(viewModel: RecordViewModel, uiState: RecordV
                 placeholder = { Text("输入新标签", fontSize = 13.sp, color = TextPlaceholder) },
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
             OutlinedButton(
@@ -386,11 +408,11 @@ private fun MealTabs(
 ) {
     val tabIndex = MealKey.entries.indexOf(currentMeal).coerceAtLeast(0)
 
-    ScrollableTabRow(
+    TabRow(
         selectedTabIndex = tabIndex,
+        modifier = Modifier.fillMaxWidth(),
         containerColor = BgCard,
         contentColor = Primary,
-        edgePadding = 0.dp,
         divider = {}
     ) {
         MealKey.entries.forEach { meal ->
@@ -484,15 +506,16 @@ private fun FormCard(
     onTogglePicker: () -> Unit,
     onSave: () -> Unit,
     onCancelEdit: () -> Unit,
-    onTemplateSelected: (FoodTemplate) -> Unit
+    onTemplateSelected: (FoodTemplate) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 标题
@@ -506,7 +529,7 @@ private fun FormCard(
 
             // 食物名称（带模板自动补全）
             Column {
-                FormField(
+                NutritionField(
                     label = "食物名称",
                     value = foodName,
                     placeholder = "选填，如 燕麦牛奶",
@@ -546,7 +569,7 @@ private fun FormCard(
             }
 
             // 克重（默认 100g）
-            FormField(
+            NutritionField(
                 label = "克重",
                 unit = "g",
                 value = weight,
@@ -574,28 +597,33 @@ private fun FormCard(
                 thickness = 0.5.dp
             )
 
-            // 蛋白质
-            FormField(
-                label = "蛋白质",
-                unit = "g",
-                value = protein,
-                placeholder = "选填",
-                keyboardType = KeyboardType.Decimal,
-                onValueChange = onProteinInput
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // 蛋白质
+                NutritionField(
+                    label = "蛋白质",
+                    unit = "g",
+                    value = protein,
+                    placeholder = "选填",
+                    keyboardType = KeyboardType.Decimal,
+                    onValueChange = onProteinInput,
+                    modifier = Modifier.weight(1f)
+                )
 
-            // 脂肪
-            FormField(
-                label = "脂肪",
-                unit = "g",
-                value = fat,
-                placeholder = "选填",
-                keyboardType = KeyboardType.Decimal,
-                onValueChange = onFatInput
-            )
+                // 脂肪
+                NutritionField(
+                    label = "脂肪",
+                    unit = "g",
+                    value = fat,
+                    placeholder = "选填",
+                    keyboardType = KeyboardType.Decimal,
+                    onValueChange = onFatInput,
+                    modifier = Modifier.weight(1f)
+                )
+
+            }
 
             // 碳水
-            FormField(
+            NutritionField(
                 label = "碳水",
                 unit = "g",
                 value = carbs,
@@ -694,156 +722,12 @@ private fun DualUnitRow(
     onValueAChange: (String) -> Unit,
     onValueBChange: (String) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 标签
-        Row(
-            modifier = Modifier.weight(0.35f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium
-            )
-            if (required) {
-                Text(
-                    text = " *",
-                    fontSize = 14.sp,
-                    color = Error
-                )
-            }
-        }
-
-        // 两个并列输入框
-        Row(
-            modifier = Modifier.weight(0.65f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            DualUnitInput(
-                value = valueA,
-                unit = unitA,
-                placeholder = placeholderA,
-                onValueChange = onValueAChange,
-                modifier = Modifier.weight(1f)
-            )
-            DualUnitInput(
-                value = valueB,
-                unit = unitB,
-                placeholder = placeholderB,
-                onValueChange = onValueBChange,
-                modifier = Modifier.weight(1f)
-            )
-        }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        NutritionField(label, unitA, valueA, onValueAChange, required, placeholderA, modifier = Modifier.weight(1f))
+        NutritionField(label, unitB, valueB, onValueBChange, required, placeholderB, modifier = Modifier.weight(1f))
     }
 }
 
-@Composable
-private fun DualUnitInput(
-    value: String,
-    unit: String,
-    placeholder: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier,
-        placeholder = {
-            Text(placeholder, fontSize = 13.sp, color = TextPlaceholder)
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        textStyle = TextStyle(fontSize = 14.sp),
-        trailingIcon = {
-            Text(
-                text = unit,
-                fontSize = 12.sp,
-                color = TextPlaceholder,
-                modifier = Modifier.padding(end = 12.dp)
-            )
-        },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Primary,
-            unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-        ),
-        shape = RoundedCornerShape(8.dp)
-    )
-}
-
-// ==================== 表单字段 ====================
-
-@Composable
-private fun FormField(
-    label: String,
-    value: String,
-    placeholder: String = "",
-    unit: String? = null,
-    required: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    onValueChange: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 标签
-        Row(
-            modifier = Modifier.weight(0.35f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium
-            )
-            if (unit != null) {
-                Text(
-                    text = " $unit",
-                    fontSize = 12.sp,
-                    color = TextPlaceholder
-                )
-            }
-            if (required) {
-                Text(
-                    text = " *",
-                    fontSize = 14.sp,
-                    color = Error
-                )
-            }
-        }
-
-        // 输入框
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(0.65f),
-            placeholder = {
-                Text(placeholder, fontSize = 13.sp, color = TextPlaceholder)
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-    }
-}
 
 // ==================== 微量营养素输入行 ====================
 
@@ -894,10 +778,7 @@ private fun MicroFormRow(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
 

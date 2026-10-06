@@ -55,7 +55,7 @@ fun RingProgress(
     primaryColor: Color = Primary,
     warningColor: Color = Warning,
     overflowColor: Color = Error,
-    trackColor: Color = Color(0xFFE0E0E0),
+    trackColor: Color = com.example.nutrition.ui.theme.BgTag,
     warningThreshold: Float = 80f
 ) {
     // 动画目标值
@@ -137,7 +137,7 @@ fun RingProgress(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = centerText,
-                color = currentColor,
+                color = com.example.nutrition.ui.theme.TextPrimary,
                 fontSize = (size.value * 0.2f).sp,
                 fontWeight = FontWeight.Bold
             )

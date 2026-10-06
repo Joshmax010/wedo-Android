@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * 本地存储仓库接口 —— 对应小程序 utils/storage.js 的 16 个导出函数
  *
- * 读操作返回 Flow，写操作返回 Resource<Unit>（成功 / 失败+错误信息）
+ * 读操作返回 Flow；读取或本地 JSON 解码失败时抛出异常，由调用方反馈和重试。
+ * 写操作返回 Resource<Unit>（成功 / 失败+错误信息），协程取消继续传播。
  */
 interface LocalStorageRepository {
 
@@ -65,7 +66,11 @@ interface LocalStorageRepository {
 
     // ==================== 批量操作 ====================
 
-    /** 批量写入数据（用于导入恢复，含回读校验） */
+    /**
+     * 在单个事务中批量写入数据（用于导入恢复，含回读校验）。
+     * 写入或校验失败时回滚全部变更；null 字段保留现有数据。
+     * 模板/身体记录传空列表时清空对应数据，其中预设模板保留。
+     */
     suspend fun bulkSet(
         targets: NutritionTargets? = null,
         records: Map<String, DayRecords>? = null,

@@ -2,7 +2,6 @@ package com.example.nutrition.viewmodel
 
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.model.DayRecords
@@ -12,19 +11,21 @@ import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.Calculator
 import com.example.nutrition.domain.usecase.DateUtils
 import com.example.nutrition.domain.usecase.MetabolismCalculator
+import com.example.nutrition.domain.usecase.UnitConverter
 import com.example.nutrition.ui.theme.CarbsColor
 import com.example.nutrition.ui.theme.FatColor
 import com.example.nutrition.ui.theme.ProteinColor
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 /**
  * 首页 ViewModel —— 对应小程序 pages/index/index.js
@@ -71,6 +72,7 @@ class HomeViewModel(
         val hasData: Boolean = false,
         val ringPercent: Int = 0,
         val ringCenterText: String = "0",
+        val ringGapLabel: String = "还差",
         val targetCalories: Double = 0.0,
         val macros: List<MacroData> = emptyList(),
         val micros: List<MicroData> = emptyList(),
@@ -79,39 +81,30 @@ class HomeViewModel(
         val showGuide: Boolean = false,
         // 二期：代谢计算相关展示
         val tdee: Double? = null,
-        val isAutoCalculated: Boolean = false
+        val isAutoCalculated: Boolean = false,
+        val dataError: String? = null,
+        val metadataError: String? = null
     )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    init {
-        // 日期或仓库数据变化时自动重算
-        viewModelScope.launch {
-            _uiState
-                .map { it.currentDate }
-                .distinctUntilChanged()
-                .flatMapLatest { date ->
-                    combine(
-                        repository.getTargets(),
-                        repository.getDayRecords(date)
-                    ) { targets, dayData ->
-                        date to (targets to dayData)
-                    }
-                }
-                .collect { (date, pair) ->
-                    applyHomeData(date, pair.first, pair.second)
-                }
-        }
-    }
+    private var dataJob: Job? = null
 
-    // ==================== 数据加载 ====================
+    init { loadData() }
 
-    /**
-     * 兼容入口：数据已由 Flow 自动驱动，无需手动加载
-     */
     fun loadData() {
-        // no-op
+        if (dataJob?.isActive == true) return
+        dataJob = viewModelScope.launchWithErrorFeedback("读取首页数据失败，请重试", {
+            _uiState.update { state -> state.copy(dataError = it) }
+        }) {
+            _uiState.map { it.currentDate }.distinctUntilChanged()
+                .flatMapLatest { date ->
+                    combine(repository.getTargets(), repository.getDayRecords(date)) { targets, day ->
+                        date to (targets to day)
+                    }
+                }.collect { (date, pair) -> applyHomeData(date, pair.first, pair.second) }
+        }
     }
 
     private suspend fun applyHomeData(
@@ -126,8 +119,9 @@ class HomeViewModel(
 
         _uiState.update { state ->
             state.copy(
+                dataError = null,
                 isToday = DateUtils.isToday(dateStr),
-                hasData = dayAgg.calories > 0,
+                hasData = !dayData.isEmpty(),
                 // 二期：代谢计算展示
                 isAutoCalculated = targets.isAutoCalculated,
                 tdee = targets.bodyProfile?.let { MetabolismCalculator.calculateTdee(it) },
@@ -138,10 +132,11 @@ class HomeViewModel(
                 } else {
                     0
                 },
-                ringCenterText = when {
-                    gap > 0 -> "+${gap.toInt()}"
-                    gap < 0 -> "${gap.toInt()}"
-                    else -> "${dayAgg.calories}"
+                ringCenterText = UnitConverter.formatForInput(kotlin.math.abs(gap)),
+                ringGapLabel = when {
+                    gap > 0 -> "超出"
+                    gap < 0 -> "还差"
+                    else -> "已达目标"
                 },
                 // 宏量营养素
                 macros = listOf(
@@ -181,11 +176,9 @@ class HomeViewModel(
      * 检测首次使用并显示引导
      */
     fun checkFirstUse() {
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(metadataError = message) } }) {
             val meta = repository.getMeta().first()
-            if (meta == null || !meta.hasSeenGuide) {
-                _uiState.update { it.copy(showGuide = true) }
-            }
+            _uiState.update { it.copy(showGuide = meta == null || !meta.hasSeenGuide, metadataError = null) }
         }
     }
 
@@ -194,9 +187,12 @@ class HomeViewModel(
      */
     fun onGuideFinish() {
         _uiState.update { it.copy(showGuide = false) }
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("读取应用信息失败，请重试", { message -> _uiState.update { it.copy(metadataError = message) } }) {
             val meta = repository.getMeta().first() ?: NutrientConstants.getDefaultMeta()
-            repository.setMeta(meta.copy(hasSeenGuide = true))
+            val result = repository.setMeta(meta.copy(hasSeenGuide = true))
+            _uiState.update {
+                it.copy(metadataError = (result as? com.example.nutrition.domain.model.Resource.Error)?.message)
+            }
         }
     }
 
@@ -215,18 +211,6 @@ class HomeViewModel(
             val next = DateUtils.nextDay(state.currentDate)
             // 不超过今天
             if (next <= DateUtils.today()) state.copy(currentDate = next) else state
-        }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return HomeViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

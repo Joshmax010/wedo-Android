@@ -1,9 +1,6 @@
 package com.example.nutrition.ui.screens
 
 import android.app.DatePickerDialog
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,36 +20,26 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.MealKey
 import com.example.nutrition.domain.usecase.DateUtils
@@ -65,14 +52,12 @@ import com.example.nutrition.ui.theme.BgMain
 import com.example.nutrition.ui.theme.BgTag
 import com.example.nutrition.ui.theme.Error
 import com.example.nutrition.ui.theme.Primary
-import com.example.nutrition.ui.theme.Spacing
 import com.example.nutrition.ui.theme.TextInverse
 import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.ui.theme.Warning
 import com.example.nutrition.viewmodel.HomeViewModel
-import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.LocalDate
 
 /**
@@ -83,24 +68,14 @@ import java.time.LocalDate
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { HomeViewModel(NutritionApp.instance.repository) }
+        }
     ),
-    onNavigateToRecord: (MealKey?) -> Unit = {}
+    onNavigateToRecord: (MealKey?, String) -> Unit = { _, _ -> }
 ) {
     // 页面状态（单一 UiState）
-    val uiState by viewModel.uiState.collectAsState()
-
-    // 页面 resume 时刷新数据
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.loadData()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // 首次加载
     LaunchedEffect(Unit) {
@@ -110,26 +85,10 @@ fun HomeScreen(
 
     val context = LocalContext.current
 
-    // 列表滚动状态：向下滑动时隐藏 FAB，向上滑动或回到顶部时显示
     val listState = rememberLazyListState()
-    var previousIndex by remember { mutableIntStateOf(0) }
-    var previousScrollOffset by remember { mutableIntStateOf(0) }
-    var fabVisible by remember { mutableStateOf(true) }
-
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .distinctUntilChanged()
-            .collect { (index, offset) ->
-                if (index == 0 && offset == 0) {
-                    fabVisible = true
-                } else if (index > previousIndex || (index == previousIndex && offset > previousScrollOffset)) {
-                    fabVisible = false
-                } else {
-                    fabVisible = true
-                }
-                previousIndex = index
-                previousScrollOffset = offset
-            }
+    com.example.nutrition.ui.navigation.TrackRootTitleScroll {
+        if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat()
+        else Float.POSITIVE_INFINITY
     }
 
     // 日期选择辅助
@@ -152,11 +111,19 @@ fun HomeScreen(
     Box(modifier = Modifier.fillMaxSize().background(BgMain)) {
         LazyColumn(
             state = listState,
+            contentPadding = com.example.nutrition.ui.navigation.LocalPageContentPadding.current,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item { com.example.nutrition.ui.navigation.PageTitle("总览", "查看当天的摄入与目标") }
+            uiState.dataError?.let { message ->
+                item { DataLoadError(message, viewModel::loadData) }
+            }
+            uiState.metadataError?.let { message ->
+                item { DataLoadError(message, viewModel::checkFirstUse) }
+            }
             // 存储容量告警横幅
             uiState.storageWarn?.let { warn ->
                 item {
@@ -175,19 +142,21 @@ fun HomeScreen(
                 )
             }
 
-            if (!uiState.hasData) {
+            if (!uiState.hasData && uiState.dataError == null) {
                 // 空状态
                 item {
                     Spacer(modifier = Modifier.height(60.dp))
-                    EmptyState(onRecord = { onNavigateToRecord(null) })
+                    EmptyState(onRecord = { onNavigateToRecord(null, uiState.currentDate) })
                 }
-            } else {
+            } else if (uiState.hasData) {
                 // 热量环形进度卡片
                 item {
                     RingCard(
                         percent = uiState.ringPercent.toFloat(),
                         centerText = uiState.ringCenterText,
-                        targetCalories = uiState.targetCalories
+                        gapLabel = uiState.ringGapLabel,
+                        targetCalories = uiState.targetCalories,
+                        currentCalories = uiState.meals.sumOf { it.calories }
                     )
                 }
 
@@ -209,6 +178,25 @@ fun HomeScreen(
                                     label = macro.label,
                                     unit = macro.unit,
                                     color = macro.color
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 四餐分布卡片
+                item {
+                    DashboardCard(title = "四餐分布") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.meals.forEach { meal ->
+                                MealCard(
+                                    mealKey = meal.key,
+                                    calories = meal.calories,
+                                    count = meal.count,
+                                    dailyTarget = uiState.targetCalories,
+                                    onClick = { key ->
+                                        onNavigateToRecord(key, uiState.currentDate)
+                                    }
                                 )
                             }
                         }
@@ -248,47 +236,11 @@ fun HomeScreen(
                     }
                 }
 
-                // 四餐分布卡片
+                // 底部间距
                 item {
-                    DashboardCard(title = "四餐分布") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            uiState.meals.forEach { meal ->
-                                MealCard(
-                                    mealKey = meal.key,
-                                    calories = meal.calories,
-                                    count = meal.count,
-                                    dailyTarget = uiState.targetCalories,
-                                    onClick = { key ->
-                                        onNavigateToRecord(key)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 底部间距（给 FAB 让位）
-                item {
-                    Spacer(modifier = Modifier.height(80.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
-        }
-
-        // 悬浮录入按钮，滑动时自动隐藏
-        AnimatedVisibility(
-            visible = fabVisible,
-            enter = slideInVertically { it },
-            exit = slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomEnd)
-        ) {
-            ExtendedFloatingActionButton(
-                onClick = { onNavigateToRecord(null) },
-                modifier = Modifier.padding(16.dp),
-                containerColor = Primary,
-                contentColor = TextInverse,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("录入", fontWeight = FontWeight.SemiBold) }
-            )
         }
 
         // 首次使用引导
@@ -395,7 +347,7 @@ private fun EmptyState(onRecord: () -> Unit) {
         Text(text = "\uD83C\uDF7D\uFE0F", fontSize = 48.sp)
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "今天还没有记录",
+            text = "这一天还没有饮食记录",
             fontSize = 16.sp,
             color = TextPlaceholder
         )
@@ -426,7 +378,9 @@ private fun EmptyState(onRecord: () -> Unit) {
 private fun RingCard(
     percent: Float,
     centerText: String,
-    targetCalories: Double
+    gapLabel: String,
+    targetCalories: Double,
+    currentCalories: Int
 ) {
     DashboardCard {
         Column(
@@ -436,16 +390,16 @@ private fun RingCard(
             RingProgress(
                 percent = percent,
                 centerText = centerText,
-                subText = "kcal 缺口",
-                size = 140.dp
+                subText = "kcal · $gapLabel",
+                size = 212.dp
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                RingLabel(value = "${percent.toInt()}%", label = "已摄入")
-                RingLabel(value = "${targetCalories.toInt()}", label = "对比目标")
+                RingLabel(value = "${currentCalories} kcal", label = "已摄入 · ${percent.toInt()}%")
+                RingLabel(value = "${targetCalories.toInt()} kcal", label = "每日目标")
             }
         }
     }
@@ -475,9 +429,9 @@ private fun DashboardCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             if (title != null) {

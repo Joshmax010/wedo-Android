@@ -24,9 +24,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.ui.charts.CaloriesLineChart
 import com.example.nutrition.ui.charts.NutrientBarChart
@@ -58,13 +61,17 @@ import kotlin.math.min
 @Composable
 fun WeeklyScreen(
     viewModel: WeeklyViewModel = viewModel(
-        factory = WeeklyViewModel.Factory(NutritionApp.instance.repository)
+        factory = viewModelFactory {
+            initializer { WeeklyViewModel(NutritionApp.instance.repository) }
+        }
     )
 ) {
     val context = LocalContext.current
+    val scrollState = rememberScrollState()
+    com.example.nutrition.ui.navigation.TrackRootTitleScroll { scrollState.value.toFloat() }
 
     // 页面状态（单一 UiState）
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.loadData()
@@ -78,8 +85,11 @@ fun WeeklyScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
         ) {
+            com.example.nutrition.ui.navigation.PageTitle("周报", "先看这一周的结果", modifier = Modifier.padding(horizontal = 16.dp))
+            uiState.dataError?.let { DataLoadError(it, viewModel::loadData) }
             // ========== 周切换栏 ==========
             WeekBar(
                 weekRange = uiState.weekRange,
@@ -89,8 +99,20 @@ fun WeeklyScreen(
 
             if (!uiState.hasData) {
                 // ========== 空状态 ==========
-                EmptyState()
+                if (uiState.dataError == null) EmptyState()
             } else {
+                // ========== 周报摘要 ==========
+                uiState.summary?.let { summary ->
+                    SummaryCard(
+                        summary = summary,
+                        nutrientRates = uiState.nutrientRates,
+                        onCopyReport = {
+                            copyToClipboard(context, uiState.reportText)
+                            Toast.makeText(context, "周报已复制", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
                 // ========== 热量折线图 ==========
                 ChartCard {
                     CaloriesLineChart(
@@ -102,18 +124,6 @@ fun WeeklyScreen(
                 // ========== 营养素柱状图 ==========
                 ChartCard {
                     NutrientBarChart(bars = uiState.nutrientBars)
-                }
-
-                // ========== 周报摘要 ==========
-                uiState.summary?.let { summary ->
-                    SummaryCard(
-                        summary = summary,
-                        nutrientRates = uiState.nutrientRates,
-                        onCopyReport = {
-                            copyToClipboard(context, uiState.reportText)
-                            Toast.makeText(context, "周报已复制", Toast.LENGTH_SHORT).show()
-                        }
-                    )
                 }
 
                 // ========== 微量营养素周览 ==========
@@ -210,9 +220,9 @@ private fun ChartCard(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
             content()
@@ -232,9 +242,9 @@ private fun SummaryCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 标题
@@ -246,27 +256,18 @@ private fun SummaryCard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // 四宫格
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                SummaryItem(
-                    value = summary.avgCalories.toString(),
-                    label = "日均热量(kcal)"
-                )
-                SummaryItem(
-                    value = summary.avgProtein.toString(),
-                    label = "日均蛋白质(g)"
-                )
-                SummaryItem(
-                    value = "${summary.achievementDays}/7",
-                    label = "达标天数"
-                )
-                SummaryItem(
-                    value = summary.totalGap.toInt().toString(),
-                    label = "热量缺口(kcal)"
-                )
+            val metrics = listOf(
+                summary.avgCalories.toString() to "日均热量(kcal)",
+                summary.avgProtein.toString() to "日均蛋白质(g)",
+                "${summary.achievementDays}/7" to "达标天数",
+                summary.totalGap.toInt().toString() to "热量缺口(kcal)"
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                metrics.chunked(2).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        row.forEach { (value, label) -> SummaryItem(value, label, Modifier.weight(1f)) }
+                    }
+                }
             }
 
             // 营养素达标率
@@ -301,13 +302,13 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun SummaryItem(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun SummaryItem(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
         Text(
             text = value,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Primary
+            color = TextPrimary
         )
         Text(
             text = label,
@@ -338,7 +339,7 @@ private fun NutrientRateRow(rate: WeeklyViewModel.NutrientRateRow) {
                 .weight(1f)
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFFF0F0F0))
+                .background(com.example.nutrition.ui.theme.BgTag)
         ) {
             val fillPercent = min(rate.rate, 100.0).toFloat() / 100f
             val fillColor = if (rate.rate > 100) Error else Primary
@@ -371,9 +372,9 @@ private fun MicroTableCard(rows: List<WeeklyViewModel.MicroRow>) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -388,7 +389,7 @@ private fun MicroTableCard(rows: List<WeeklyViewModel.MicroRow>) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFFAFAFA))
+                    .background(com.example.nutrition.ui.theme.BgTag)
                     .padding(vertical = 6.dp, horizontal = 4.dp)
             ) {
                 TableCell("营养素", Modifier.weight(0.3f), true)

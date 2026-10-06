@@ -15,6 +15,7 @@ import com.example.nutrition.domain.model.MicronutrientTarget
 import com.example.nutrition.domain.model.NutritionTargets
 import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.repository.LocalStorageRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -103,40 +104,46 @@ class BackupManager(
      * 含导出后校验，确保数据完整性
      */
     suspend fun exportData(): ExportResult {
-        val targets = repository.getTargets().first()
-        val records = repository.getAllRecords().first()
-        val meta = repository.getMeta().first()
-        val foodTemplates = repository.getAllFoodTemplates().first()
-            .filter { !it.isPreset }
-        val bodyRecords = repository.getAllBodyRecords().first()
+        return try {
+            val targets = repository.getTargets().first()
+            val records = repository.getAllRecords().first()
+            val meta = repository.getMeta().first()
+            val foodTemplates = repository.getAllFoodTemplates().first()
+                .filter { !it.isPreset }
+            val bodyRecords = repository.getAllBodyRecords().first()
 
-        val exportObj = BackupExport(
-            app = NutrientConstants.APP_NAME,
-            schemaVersion = NutrientConstants.SCHEMA_VERSION,
-            exportedAt = Instant.now().toString(),
-            data = BackupData(
-                targets = targets,
-                records = records,
-                meta = meta,
-                foodTemplates = foodTemplates,
-                bodyRecords = bodyRecords
+            val exportObj = BackupExport(
+                app = NutrientConstants.APP_NAME,
+                schemaVersion = NutrientConstants.SCHEMA_VERSION,
+                exportedAt = Instant.now().toString(),
+                data = BackupData(
+                    targets = targets,
+                    records = records,
+                    meta = meta,
+                    foodTemplates = foodTemplates,
+                    bodyRecords = bodyRecords
+                )
             )
-        )
 
-        val jsonStr = json.encodeToString(exportObj)
+            val jsonStr = json.encodeToString(exportObj)
 
-        // 导出后校验
-        val verification = verifyExportIntegrity(jsonStr)
-        if (!verification.valid) {
-            return ExportResult(false, "", verification.error)
+            // 导出后校验
+            val verification = verifyExportIntegrity(jsonStr)
+            if (!verification.valid) {
+                return ExportResult(false, "", verification.error)
+            }
+
+            // 更新元信息的上次导出时间
+            if (meta != null) {
+                repository.setMeta(meta.copy(lastExportDate = Instant.now().toString()))
+            }
+
+            return ExportResult(true, jsonStr, "")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            ExportResult(false, "", "读取备份数据失败，请重试")
         }
-
-        // 更新元信息的上次导出时间
-        if (meta != null) {
-            repository.setMeta(meta.copy(lastExportDate = Instant.now().toString()))
-        }
-
-        return ExportResult(true, jsonStr, "")
     }
 
     // ==================== S4.6: 导出完整性校验 ====================

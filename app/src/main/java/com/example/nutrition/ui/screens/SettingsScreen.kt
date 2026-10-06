@@ -1,6 +1,10 @@
 package com.example.nutrition.ui.screens
 
-import android.widget.Toast
+import com.example.nutrition.ui.components.ObserveUiEvents
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.nutrition.ui.components.NutritionField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +20,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,25 +30,29 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.nutrition.ui.theme.nutritionFieldColors
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.nutrition.ui.components.DataLoadError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.nutrition.NutritionApp
 import com.example.nutrition.domain.model.ActivityLevel
 import com.example.nutrition.domain.model.Gender
@@ -56,41 +66,52 @@ import com.example.nutrition.ui.theme.TextPrimary
 import com.example.nutrition.ui.theme.TextSecondary
 import com.example.nutrition.ui.theme.TextPlaceholder
 import com.example.nutrition.ui.theme.Warning
+import com.example.nutrition.ui.theme.LocalAppearance
+import com.example.nutrition.ui.theme.ThemeMode
 import com.example.nutrition.viewmodel.SettingsViewModel
-import com.example.nutrition.viewmodel.UIEvent
 
 /**
  * 设置页 —— 对应小程序 pages/settings/settings.wxml
  *
  * 每日营养目标表单 + 数据管理 + 关于 + 导入弹窗
  */
+enum class SettingsSection(val title: String, val subtitle: String) {
+    MAIN("设置", "管理目标、工具与本地数据"),
+    TARGETS("档案与目标", "身体档案与营养目标一起保存"),
+    DATA("数据管理", "本地数据由你管理"),
+    ABOUT("关于", "")
+}
+
 @Composable
 fun SettingsScreen(
     onNavigateToTemplates: () -> Unit = {},
     onNavigateToBodyStats: () -> Unit = {},
+    onNavigateToTargets: () -> Unit = {},
+    onNavigateToData: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
+    section: SettingsSection = SettingsSection.MAIN,
     viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.Factory(
-            NutritionApp.instance.repository,
-            NutritionApp.instance.backupManager
-        )
+        factory = viewModelFactory {
+            initializer {
+                SettingsViewModel(NutritionApp.instance.repository, NutritionApp.instance.backupManager)
+            }
+        }
     )
 ) {
     val context = LocalContext.current
-    val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
+    if (section == SettingsSection.MAIN) {
+        com.example.nutrition.ui.navigation.TrackRootTitleScroll { scrollState.value.toFloat() }
+    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showAppearance by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.initialize()
     }
 
     // 一次性事件（Toast）
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is UIEvent.ShowToast ->
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+    ObserveUiEvents(viewModel.events, blocked = uiState.showCalcDialog || uiState.showImportModal || uiState.showClearConfirm || uiState.showNutrientPicker || showAppearance)
 
     Box(
         modifier = Modifier
@@ -100,30 +121,45 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
+                .padding(com.example.nutrition.ui.navigation.LocalPageContentPadding.current)
                 .padding(horizontal = 16.dp)
         ) {
+            com.example.nutrition.ui.navigation.PageTitle(section.title, section.subtitle)
+            uiState.targetsError?.let { DataLoadError(it, viewModel::initialize) }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ========== 身体档案 ==========
-            BodyProfileCard(viewModel = viewModel, uiState = uiState)
-
-            // ========== 每日营养目标 ==========
-            TargetsCard(viewModel = viewModel, uiState = uiState)
-
-            // ========== 功能 ==========
-            FeaturesCard(
-                onTemplates = onNavigateToTemplates,
-                onBodyStats = onNavigateToBodyStats
-            )
-
-            // ========== 数据管理 ==========
-            DataManagementCard(viewModel = viewModel)
-
-            // ========== 关于 ==========
-            AboutCard(viewModel = viewModel, uiState = uiState)
+            when (section) {
+                SettingsSection.MAIN -> {
+                    SettingsMenuCard("个人与目标") {
+                        DataRow("身体档案与营养目标", "档案、代谢估算与每日目标", onClick = onNavigateToTargets)
+                    }
+                    FeaturesCard(onTemplates = onNavigateToTemplates, onBodyStats = onNavigateToBodyStats)
+                    val appearance = LocalAppearance.current
+                    SettingsMenuCard("应用与数据") {
+                        DataRow("外观", appearance.mode.label) { showAppearance = true }
+                        DataRow("数据管理", "备份、导入与清空饮食记录", onClick = onNavigateToData)
+                        DataRow("关于", "版本、隐私与存储占用", onClick = onNavigateToAbout)
+                    }
+                }
+                SettingsSection.TARGETS -> {
+                    BodyProfileCard(viewModel, uiState)
+                    TargetsCard(viewModel, uiState)
+                }
+                SettingsSection.DATA -> DataManagementCard(viewModel)
+                SettingsSection.ABOUT -> AboutCard(viewModel, uiState)
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        if (showAppearance) {
+            AlertDialog(
+                onDismissRequest = { showAppearance = false },
+                title = { Text("外观", color = TextPrimary) },
+                text = { AppearanceChoices() },
+                confirmButton = { TextButton(onClick = { showAppearance = false }) { Text("完成") } }
+            )
         }
 
         // ========== 推荐值预览弹窗 ==========
@@ -168,32 +204,58 @@ fun SettingsScreen(
 // ==================== 营养目标卡片 ====================
 
 @Composable
+private fun SettingsMenuCard(title: String, content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = BgCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) { SectionTitle(title); content() }
+    }
+}
+
+@Composable
+private fun AppearanceChoices() {
+    val appearance = LocalAppearance.current
+    Column(Modifier.selectableGroup()) {
+        ThemeMode.entries.forEach { mode ->
+            Row(
+                modifier = Modifier.fillMaxWidth().selectable(
+                    selected = appearance.mode == mode, role = Role.RadioButton,
+                    onClick = { appearance.select(mode) }
+                ).padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(selected = appearance.mode == mode, onClick = null)
+                Text(mode.label, color = TextPrimary)
+            }
+        }
+    }
+}
+
+@Composable
 private fun TargetsCard(viewModel: SettingsViewModel, uiState: SettingsViewModel.UiState) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("每日营养目标")
 
             // 热量
-            TargetField(
-                label = "热量", unit = "kcal",
-                value = uiState.calories,
-                placeholder = "如 2000",
-                onValueChange = viewModel::onCaloriesInput
-            )
+            NutritionField(label = "热量", unit = "kcal", value = uiState.calories, placeholder = "如 2000", onValueChange = viewModel::onCaloriesInput)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
 
             // 宏量
-            TargetField("蛋白质", "g", uiState.protein, "如 120", viewModel::onProteinInput)
-            TargetField("脂肪", "g", uiState.fat, "如 65", viewModel::onFatInput)
-            TargetField("碳水", "g", uiState.carbs, "如 250", viewModel::onCarbsInput)
+            NutritionField(label = "蛋白质", unit = "g", value = uiState.protein, placeholder = "如 120", onValueChange = viewModel::onProteinInput)
+            NutritionField(label = "脂肪", unit = "g", value = uiState.fat, placeholder = "如 65", onValueChange = viewModel::onFatInput)
+            NutritionField(label = "碳水", unit = "g", value = uiState.carbs, placeholder = "如 250", onValueChange = viewModel::onCarbsInput)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
 
@@ -234,7 +296,7 @@ private fun TargetsCard(viewModel: SettingsViewModel, uiState: SettingsViewModel
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
-                Text("保存目标", fontWeight = FontWeight.SemiBold)
+                Text("保存档案与目标", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -251,12 +313,12 @@ private fun FeaturesCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            SectionTitle("功能")
+            SectionTitle("记录工具")
 
             DataRow(
                 title = "食物模板",
@@ -282,9 +344,9 @@ private fun DataManagementCard(viewModel: SettingsViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("数据管理")
@@ -317,9 +379,9 @@ private fun AboutCard(viewModel: SettingsViewModel, uiState: SettingsViewModel.U
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("关于")
@@ -404,11 +466,8 @@ private fun ImportModal(viewModel: SettingsViewModel, uiState: SettingsViewModel
                             Text("在此粘贴导出的 JSON 数据", color = TextPlaceholder)
                         },
                         textStyle = TextStyle(fontSize = 13.sp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
-                            unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = nutritionFieldColors(),
+                        shape = RoundedCornerShape(12.dp)
                     )
 
                     // 错误提示
@@ -545,38 +604,6 @@ private fun SectionTitle(text: String) {
     )
 }
 
-@Composable
-private fun TargetField(
-    label: String,
-    unit: String,
-    value: String,
-    placeholder: String,
-    onValueChange: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(modifier = Modifier.weight(0.35f), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
-            Text(" $unit", fontSize = 12.sp, color = TextPlaceholder)
-        }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(0.65f),
-            placeholder = { Text(placeholder, fontSize = 13.sp, color = TextPlaceholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-    }
-}
 
 @Composable
 private fun MicroTargetRow(
@@ -605,10 +632,7 @@ private fun MicroTargetRow(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 textStyle = TextStyle(fontSize = 14.sp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-                ),
+                colors = nutritionFieldColors(),
                 shape = RoundedCornerShape(8.dp)
             )
             Box(
@@ -699,9 +723,9 @@ private fun BodyProfileCard(viewModel: SettingsViewModel, uiState: SettingsViewM
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = BgCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             SectionTitle("身体档案")
@@ -732,21 +756,21 @@ private fun BodyProfileCard(viewModel: SettingsViewModel, uiState: SettingsViewM
             }
 
             // 年龄 / 身高 / 体重
-            ProfileNumberField(
+            NutritionField(
                 label = "年龄",
                 unit = "岁",
                 value = uiState.age,
                 placeholder = "25",
                 onValueChange = viewModel::onAgeInput
             )
-            ProfileNumberField(
+            NutritionField(
                 label = "身高",
                 unit = "cm",
                 value = uiState.height,
                 placeholder = "170",
                 onValueChange = viewModel::onHeightInput
             )
-            ProfileNumberField(
+            NutritionField(
                 label = "体重",
                 unit = "kg",
                 value = uiState.weight,
@@ -801,41 +825,6 @@ private fun BodyProfileCard(viewModel: SettingsViewModel, uiState: SettingsViewM
                 Text("自动计算推荐值", fontWeight = FontWeight.SemiBold)
             }
         }
-    }
-}
-
-@Composable
-private fun ProfileNumberField(
-    label: String,
-    unit: String,
-    value: String,
-    placeholder: String,
-    onValueChange: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(modifier = Modifier.weight(0.35f), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, fontSize = 14.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
-            Text(" $unit", fontSize = 12.sp, color = TextPlaceholder)
-        }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(0.65f),
-            placeholder = { Text(placeholder, fontSize = 13.sp, color = TextPlaceholder) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            textStyle = TextStyle(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = TextPlaceholder.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
     }
 }
 

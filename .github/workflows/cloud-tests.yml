@@ -1,0 +1,86 @@
+name: Android cloud tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/cloud-tests.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile, run JVM tests, and lint
+        run: |
+          mkdir -p cloud-test-results
+          set -o pipefail
+          bash gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug --max-workers=4 --console=plain 2>&1 | tee cloud-test-results/build.log
+      - name: Collect reports
+        if: always()
+        env:
+          TESTED_COMMIT: ${{ github.sha }}
+          TEST_JOB_STATUS: ${{ job.status }}
+        run: |
+          python3 - <<'PY'
+          import glob, json, os, pathlib, shutil, xml.etree.ElementTree as E
+          out = pathlib.Path('cloud-test-results')
+          out.mkdir(exist_ok=True)
+          result = {'commit': os.environ['TESTED_COMMIT'], 'job_status': os.environ['TEST_JOB_STATUS'], 'suites': {}}
+          for name, pattern in [('jvm', 'app/build/test-results/testDebugUnitTest/TEST-*.xml')]:
+              files = glob.glob(pattern, recursive=True)
+              totals = {k: 0 for k in ['tests', 'failures', 'errors', 'skipped']}
+              for file in files:
+                  root = E.parse(file).getroot()
+                  suites = [root] if root.tag == 'testsuite' else root.findall('.//testsuite')
+                  for suite in suites:
+                      for key in totals:
+                          totals[key] += int(suite.attrib.get(key, 0))
+                  target = out / name / pathlib.Path(file).name
+                  target.parent.mkdir(exist_ok=True)
+                  shutil.copyfile(file, target)
+              result['suites'][name] = dict(totals, report_files=len(files))
+          for file in glob.glob('app/build/reports/lint-results-debug.*'):
+              shutil.copyfile(file, out / pathlib.Path(file).name)
+          jvm = result['suites']['jvm']
+          if result['job_status'] == 'success' and (jvm['tests'] == 0 or any(jvm[k] for k in ['failures', 'errors', 'skipped'])):
+              result['job_status'] = 'failure'
+              result['validation_error'] = 'Expected nonzero JVM tests with no failures, errors, or skipped tests.'
+          (out / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('```json\n' + json.dumps(result, indent=2) + '\n```\n')
+          if 'validation_error' in result:
+              raise SystemExit(result['validation_error'])
+          PY
+      - name: Store diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-cloud-test-results
+          path: cloud-test-results/
+          retention-days: 90

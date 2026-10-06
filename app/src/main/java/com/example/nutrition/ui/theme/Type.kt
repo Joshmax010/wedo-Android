@@ -15,8 +15,8 @@ val AppTypography = Typography(
     // 大标题 (对应 --font-xxl)
     headlineLarge = TextStyle(
         fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp
+        fontSize = 32.sp,
+        lineHeight = 40.sp
     ),
     // 标题 (对应 --font-xl)
     headlineMedium = TextStyle(
@@ -61,15 +61,3 @@ val AppTypography = Typography(
         lineHeight = 14.sp
     )
 )
-
-/**
- * 自定义字号快捷引用
- */
-object FontSizes {
-    val xs = 10.sp   // --font-xs
-    val sm = 12.sp   // --font-sm
-    val md = 14.sp   // --font-md
-    val lg = 16.sp   // --font-lg
-    val xl = 20.sp   // --font-xl
-    val xxl = 28.sp  // --font-xxl
-}

@@ -1,19 +1,18 @@
 package com.example.nutrition.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.nutrition.domain.model.FoodTemplate
 import com.example.nutrition.domain.model.Resource
 import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.UnitConverter
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,6 +34,7 @@ class FoodTemplateViewModel(
         val templates: List<FoodTemplate> = emptyList(),
         val searchQuery: String = "",
         val isLoading: Boolean = true,
+        val dataError: String? = null,
         // 新增/编辑表单
         val showAddDialog: Boolean = false,
         val templateName: String = "",
@@ -65,18 +65,19 @@ class FoodTemplateViewModel(
         viewModelScope.launch { _events.send(event) }
     }
 
-    init {
-        repository.getAllFoodTemplates()
-            .onEach { list ->
-                _uiState.update { it.copy(templates = list, isLoading = false) }
-            }
-            .launchIn(viewModelScope)
-    }
+    private var dataJob: Job? = null
 
-    // ==================== 兼容入口 ====================
+    init { initialize() }
 
     fun initialize() {
-        // 模板列表已由 Flow 自动驱动，无需手动加载
+        if (dataJob?.isActive == true) return
+        dataJob = viewModelScope.launchWithErrorFeedback("读取食物模板失败，请重试", { message ->
+            _uiState.update { state -> state.copy(isLoading = false, dataError = message) }
+        }) {
+            repository.getAllFoodTemplates().collect { list ->
+                _uiState.update { state -> state.copy(templates = list, isLoading = false, dataError = null) }
+            }
+        }
     }
 
     // ==================== 搜索与筛选 ====================
@@ -234,7 +235,7 @@ class FoodTemplateViewModel(
             isPreset = isPreset
         )
 
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.saveFoodTemplate(template)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
                 is Resource.Success -> {
@@ -254,7 +255,7 @@ class FoodTemplateViewModel(
     fun confirmDelete() {
         val id = _uiState.value.deleteId ?: return
         _uiState.update { it.copy(deleteId = null) }
-        viewModelScope.launch {
+        viewModelScope.launchWithErrorFeedback("操作失败，请重试", { sendEvent(UIEvent.ShowToast(it)) }) {
             when (val result = repository.deleteFoodTemplate(id)) {
                 is Resource.Error -> sendEvent(UIEvent.ShowToast(result.message))
                 is Resource.Success -> sendEvent(UIEvent.ShowToast("已删除"))
@@ -280,18 +281,6 @@ class FoodTemplateViewModel(
                 newTagInput = "",
                 editingId = null
             )
-        }
-    }
-
-    // ==================== ViewModelFactory ====================
-
-    class Factory(private val repository: LocalStorageRepository) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(FoodTemplateViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return FoodTemplateViewModel(repository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

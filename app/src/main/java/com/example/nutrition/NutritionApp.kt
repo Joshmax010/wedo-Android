@@ -1,12 +1,13 @@
 package com.example.nutrition
 
 import android.app.Application
+import android.util.Log
 import com.example.nutrition.data.local.db.NutritionDatabase
-import com.example.nutrition.data.local.prefs.DataStoreManager
 import com.example.nutrition.data.repository.RoomLocalStorageRepository
 import com.example.nutrition.domain.constants.NutrientConstants
 import com.example.nutrition.domain.repository.LocalStorageRepository
 import com.example.nutrition.domain.usecase.BackupManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,7 +18,6 @@ class NutritionApp : Application() {
 
     val database: NutritionDatabase by lazy { NutritionDatabase.getInstance(this) }
     val repository: LocalStorageRepository by lazy { RoomLocalStorageRepository(database) }
-    val dataStoreManager: DataStoreManager by lazy { DataStoreManager(this) }
     val backupManager: BackupManager by lazy { BackupManager(repository) }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -28,7 +28,13 @@ class NutritionApp : Application() {
 
         // 启动时迁移 schema 版本
         appScope.launch {
-            migrateSchemaVersion()
+            try {
+                migrateSchemaVersion()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("NutritionApp", "Unable to read application metadata", e)
+            }
         }
     }
 
