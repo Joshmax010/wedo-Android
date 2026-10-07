@@ -2,7 +2,7 @@
 
 ## 1.4.5 · 2026-10-06
 
-versionCode 6；Room 数据库保持 v4，备份 Schema 保持 v3。用户已确认本轮内容全部完成真机手工验收，并授权合并、发布与清理开发分支。
+versionCode 6；Room 数据库保持 v4，备份 Schema 保持 v3。用户已确认本轮内容全部完成真机手工验收。[PR #1](https://github.com/Joshmax010/wedo-Android/pull/1) 已合并，[v1.4.5](https://github.com/Joshmax010/wedo-Android/releases/tag/v1.4.5) 已正式发布；2026-10-07 完成公开安装包下载复验与旧开发分支清理。
 
 ### 页面与交互
 

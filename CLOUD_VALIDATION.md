@@ -1,24 +1,31 @@
 # 验证记录：云端、本地与手工验收
 
-## 当前验证状态（2026-10-06）
+## 当前验证状态（2026-10-07）
 
 用户已明确确认全部内容完成真机手工测试，并授权合并 main、发布 **1.4.5（versionCode 6）** 与清理开发分支。验收代码基线为 `24facaa`；数据库保持 Room v4，备份 Schema 保持 v3。
+
+[PR #1](https://github.com/Joshmax010/wedo-Android/pull/1) 已合并，正式发布标签 `v1.4.5` 指向 `504d43ec25b14ea6923c29843304b86d8fcfe83c`。Release 于北京时间 2026-10-06 22:56:33 公开并标记为 Latest，非草稿、非预发布；2026-10-07 完成公开资产复验和旧分支清理。
 
 | 验证来源 | 代码/范围 | 实际结果 |
 |---|---|---|
 | 本地 Gradle | 页头布局与 WeDo 项目入口阶段 | Debug APK 构建通过；149 个 JVM 用例通过，0 失败、0 错误、0 跳过；Lint 0 错误、25 条警告 |
 | 正式发布本地构建 | 1.4.5 / versionCode 6 | `assembleRelease`（R8）、149 个 JVM 用例、`lintRelease`、`lintDebug` 全部成功；用例 0 失败/错误/跳过，两种 Lint 均为 0 错误、25 条警告 |
 | 正式 APK 本地核验 | `wedo-fitness-v1.4.5.apk` | 2,210,713 字节；版本、包名及非 debuggable 正常；apksigner 成功，v2=true、v3=false；证书与实际下载官方 v1.4.3 包一致；哈希见 [维护说明](./MAINTENANCE.md#1-当前版本与验证边界) |
+| GitHub Actions，PR 触发 | 报告实际测试提交 `504d43e` | [运行 37481189031 成功](https://github.com/Joshmax010/wedo-Android/actions/runs/37481189031)；149 个 JVM 用例，0 失败/错误/跳过；Lint 0 错误、40 条警告 |
+| GitHub Actions，main push 触发 | `504d43e` | [运行 37480906751 已取消](https://github.com/Joshmax010/wedo-Android/actions/runs/37480906751)，报告中 0 个已执行用例，不计作通过；后续上述 PR 检查验证了同一提交 |
+| 公开 Release 下载回环 | 2026-10-07 下载 v1.4.5 的 APK 与 `.apk.sha256` | 文件大小及 SHA-256 与本地正式包一致，校验文件匹配，签名验证成功；下载入口与完整摘要见 [维护说明](./MAINTENANCE.md#1-当前版本与验证边界) |
 | GitHub Actions | `24facaa` | [运行 37478913616 成功](https://github.com/Joshmax010/wedo-Android/actions/runs/37478913616) |
 | GitHub Actions | `500c7c0` | [运行 37477118912 成功](https://github.com/Joshmax010/wedo-Android/actions/runs/37477118912) |
 | 用户真机手工验收 | 最终页头基线 `24facaa`，覆盖本轮内容 | 2026-10-06 用户明确表示全部测试完成；[页头专项步骤](./PAGE_HEADER_DEVICE_CHECKLIST.md)与[统一回归步骤](./LOCAL_REGRESSION_CHECKLIST.md)作为后续复测清单保留 |
 | Room instrumentation | 38 个设备用例 | 本轮未实际自动执行；手工验收和测试 APK 编译打包不计作这些用例通过 |
 
-正式 release APK、签名、哈希及发布核对步骤另见 [维护操作说明](./MAINTENANCE.md)。上述 APK 为发布前本地核验结果，尚不声称上传后下载回环完成。下面的 121/141/143 个用例和 38/39 条 Lint 警告保留为对应提交、执行环境的历史数据，不改写成最新结果。
+正式 Release APK、签名、哈希、发布时间和下载回环结果见 [维护操作说明](./MAINTENANCE.md)。本地 25 条与本次云端 40 条 Lint 警告分别来自各自执行环境；下面的 121/141/143 个用例和 38/39 条警告保留为历史数据，不改写成最新结果。
 
 ### 历史报告归档与当前 CI
 
 开发阶段的 `codex/cloud-test-results` 分支在清理前由永久归档标签 `archive/cloud-test-results-2026-10-06` 保留，标签指向 `5eba86f069c51f865e35a15da8150925aef39428`，其树包含全部历史 `runs/` 报告。下面的历史报告链接使用固定提交；删除原报告分支不影响这些证据，也不会把原始 XML 和构建日志混入主源码。
+
+2026-10-07 已删除功能分支与报告分支，仅保留 main；归档标签和正式版本标签继续保留。
 
 后续工作流在 main 和面向 main 的 PR 上运行，也可手动触发，使用只读仓库权限；JSON、JUnit XML、Lint 与构建日志通过 Actions artifacts 保存 90 天，不再创建或追加报告分支。需长期保存的发布证据在到期前另行归档，并在本文件保留提交、运行与报告位置。
 

@@ -19,7 +19,11 @@
 | 签名证书 SHA-256 | `041d81d18eb0d91506d4ec5c88d1c0f3a49aacf59bbaeb8f6d3fd697f8e4dd23` |
 | apksigner | 验证成功，v2=true、v3=false |
 
-发布目标为 [GitHub Release v1.4.5](https://github.com/Joshmax010/wedo-Android/releases/tag/v1.4.5)。上述为发布前本地结果，上传和下载回环尚未记为完成；上传后按 §3 对下载资产重新核对大小、SHA-256 和证书摘要。
+[GitHub Release v1.4.5](https://github.com/Joshmax010/wedo-Android/releases/tag/v1.4.5) 已于北京时间 **2026-10-06 22:56:33** 正式发布并标记为 Latest，非草稿、非预发布。发布标签指向 [504d43ec25b14ea6923c29843304b86d8fcfe83c](https://github.com/Joshmax010/wedo-Android/commit/504d43ec25b14ea6923c29843304b86d8fcfe83c)，对应已合并的 [PR #1](https://github.com/Joshmax010/wedo-Android/pull/1)。2026-10-07 重新下载公开 APK 和校验文件，文件大小、SHA-256 与上表一致，签名验证成功。
+
+云端 [PR 检查 37481189031](https://github.com/Joshmax010/wedo-Android/actions/runs/37481189031) 成功；其报告记录的实际测试提交也是 `504d43ec25b14ea6923c29843304b86d8fcfe83c`，149 个 JVM 用例零失败/错误/跳过，Lint 0 错误、40 条警告。此前 main 的 push 检查 `37480906751` 被取消，不计作通过；本地与云端的 Lint 警告数按各自报告记录。
+
+2026-10-07 已删除 `codex/atomic-backup-import` 和 `codex/cloud-test-results`，本地及远端仅保留 main 分支。功能提交完整保留在 main 的合并历史中，197 个历史报告文件由 `archive/cloud-test-results-2026-10-06` 标签保留，可据此恢复原报告分支。
 
 ## 2. 获取代码与构建环境
 
